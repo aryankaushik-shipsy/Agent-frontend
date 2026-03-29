@@ -12,7 +12,7 @@ interface Props {
 
 export function AIPerformancePanel({ insights, completedJobs, loadingInsights, loadingJobs }: Props) {
   const getMetric = (label: string): number => {
-    return insights?.metrics.find((m) => m.label === label)?.value ?? 0
+    return insights?.metrics?.find((m) => m.label === label)?.value ?? 0
   }
 
   const avgRuntime = completedJobs.length

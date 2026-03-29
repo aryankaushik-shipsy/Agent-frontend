@@ -22,7 +22,7 @@ export function QuoteSummarySidebar({
 }: Props) {
   const item = type1.items[0]
   const tier = getTierFromTasks(job)
-  const customer = getCustomerName(job.info)
+  const customer = getCustomerName(job)
   const actionId = `carrier_${selectedIndex + 1}`
 
   return (
@@ -64,12 +64,12 @@ export function QuoteSummarySidebar({
             <span className="qs-label">Carrier</span>
             <span className="qs-val">{selectedCarrier.carrier}</span>
           </div>
-          {selectedCarrier.validity_date && (
-            <div className="qs-row">
-              <span className="qs-label">Validity</span>
-              <span className="qs-val">{formatDate(selectedCarrier.validity_date)}</span>
-            </div>
-          )}
+          <div className="qs-row">
+            <span className="qs-label">Validity</span>
+            <span className="qs-val">
+              {selectedCarrier.validity_date ? formatDate(selectedCarrier.validity_date) : '—'}
+            </span>
+          </div>
           <div className="qs-total">
             <span>Total</span>
             <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>

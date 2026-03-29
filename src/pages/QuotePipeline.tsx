@@ -1,16 +1,25 @@
 import { useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, keepPreviousData } from '@tanstack/react-query'
 import { getJobs } from '../api/jobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { FilterTabs, type PipelineTab } from '../components/pipeline/FilterTabs'
 import { SearchBox } from '../components/pipeline/SearchBox'
 import { PipelineTable } from '../components/pipeline/PipelineTable'
+import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
 import { Button } from '../components/ui/Button'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import type { JobFilter } from '../types/api'
 
-function getFilter(tab: PipelineTab, page: number): JobFilter {
-  const base: JobFilter = { workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 20, page_number: page, order_by: 'desc', sort_by: 'created_at' }
+function getFilter(tab: PipelineTab, page: number, dateRange: DateRange): JobFilter {
+  const base: JobFilter = {
+    workflow_ids: [RFQ_WORKFLOW_ID],
+    result_per_page: 10,
+    page_number: page,
+    order_by: 'desc',
+    sort_by: 'created_at',
+    created_at_from: dateRange.from,
+    created_at_to: dateRange.to,
+  }
   switch (tab) {
     case 'processing': return { ...base, statuses: ['queued', 'running'], active_interventions: false }
     case 'pending':    return { ...base, active_interventions: true }
@@ -20,8 +29,13 @@ function getFilter(tab: PipelineTab, page: number): JobFilter {
   }
 }
 
-function getCountFilter(tab: PipelineTab): JobFilter {
-  const base: JobFilter = { workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }
+function getCountFilter(tab: PipelineTab, dateRange: DateRange): JobFilter {
+  const base: JobFilter = {
+    workflow_ids: [RFQ_WORKFLOW_ID],
+    result_per_page: 1,
+    created_at_from: dateRange.from,
+    created_at_to: dateRange.to,
+  }
   switch (tab) {
     case 'processing': return { ...base, statuses: ['queued', 'running'], active_interventions: false }
     case 'pending':    return { ...base, active_interventions: true }
@@ -34,25 +48,36 @@ function getCountFilter(tab: PipelineTab): JobFilter {
 const TABS: PipelineTab[] = ['all', 'processing', 'pending', 'sent', 'failed']
 
 export function QuotePipeline() {
-  const [activeTab, setActiveTab] = useState<PipelineTab>('all')
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab]   = useState<PipelineTab>('all')
+  const [page, setPage]             = useState(1)
+  const [search, setSearch]         = useState('')
+  const [datePreset, setDatePreset] = useState<DatePreset>('today')
+  const [dateRange, setDateRange]   = useState<DateRange>(() => presetToRange('today'))
 
-  // Fetch jobs for current tab
+  function handleDateChange(preset: DatePreset, range: DateRange) {
+    setDatePreset(preset)
+    setDateRange(range)
+    setPage(1)          // reset pagination when date changes
+  }
+
+  // Fetch jobs for current tab + date range
   const { data: jobsData, isLoading: jobsLoading } = useQueries({
     queries: [{
-      queryKey: ['jobs', getFilter(activeTab, page)],
-      queryFn: () => getJobs(getFilter(activeTab, page)),
+      queryKey: ['jobs', getFilter(activeTab, page, dateRange)],
+      queryFn: () => getJobs(getFilter(activeTab, page, dateRange)),
       staleTime: 30_000,
+      placeholderData: keepPreviousData,
+      refetchOnWindowFocus: false,
     }],
   })[0]
 
-  // Fetch counts for all tabs in parallel
+  // Fetch counts for all tabs (scoped to same date range)
   const countResults = useQueries({
     queries: TABS.map((tab) => ({
-      queryKey: ['jobs', getCountFilter(tab)],
-      queryFn: () => getJobs(getCountFilter(tab)),
+      queryKey: ['jobs', getCountFilter(tab, dateRange)],
+      queryFn: () => getJobs(getCountFilter(tab, dateRange)),
       staleTime: 60_000,
+      refetchOnWindowFocus: false,
     })),
   })
 
@@ -60,8 +85,9 @@ export function QuotePipeline() {
     TABS.map((tab, i) => [tab, countResults[i].data?.total])
   ) as Record<PipelineTab, number | undefined>
 
-  const jobs = jobsData?.jobs ?? []
+  const jobs       = jobsData?.jobs ?? []
   const totalPages = jobsData?.total_pages ?? 1
+  const totalJobs  = jobsData?.total ?? 0
 
   const { data: details, isLoading: detailsLoading } = useJobDetails(jobs.map((j) => j.id))
 
@@ -73,8 +99,10 @@ export function QuotePipeline() {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+      {/* Top controls: search + date filter */}
+      <div className="pipeline-controls">
         <SearchBox value={search} onChange={setSearch} />
+        <DateRangeFilter value={datePreset} onChange={handleDateChange} />
       </div>
 
       <FilterTabs
@@ -92,21 +120,32 @@ export function QuotePipeline() {
       />
 
       {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="pagination">
-          <span className="pagination-info">
-            Page {page} of {totalPages} · {jobsData?.total ?? 0} total
-          </span>
-          <Button variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}
-            style={{ padding: '5px 12px', fontSize: 12 }}>
-            ← Prev
-          </Button>
-          <Button variant="ghost" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}
-            style={{ padding: '5px 12px', fontSize: 12 }}>
-            Next →
-          </Button>
-        </div>
-      )}
+      <div className="pagination">
+        <span className="pagination-info">
+          {totalJobs > 0
+            ? `Showing ${Math.min((page - 1) * 10 + 1, totalJobs)}–${Math.min(page * 10, totalJobs)} of ${totalJobs}`
+            : 'No results'}
+        </span>
+        <Button
+          variant="ghost"
+          disabled={page <= 1}
+          onClick={() => setPage((p) => p - 1)}
+          style={{ padding: '5px 12px', fontSize: 12 }}
+        >
+          ← Prev
+        </Button>
+        <span style={{ fontSize: 12, color: 'var(--gray-600)' }}>
+          {page} / {totalPages}
+        </span>
+        <Button
+          variant="ghost"
+          disabled={page >= totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          style={{ padding: '5px 12px', fontSize: 12 }}
+        >
+          Next →
+        </Button>
+      </div>
     </div>
   )
 }

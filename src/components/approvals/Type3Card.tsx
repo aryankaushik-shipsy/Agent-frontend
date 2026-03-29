@@ -3,6 +3,7 @@ import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { stripHtml } from '../../utils/hitl'
+import { getCustomerName } from '../../utils/status'
 import type { JobDetail, Intervention } from '../../types/job'
 
 interface Props {
@@ -14,8 +15,9 @@ interface Props {
 
 export function Type3Card({ job, intervention, onAction, loading }: Props) {
   const navigate = useNavigate()
-  const customer = job.info?.company_name || job.info?.sender_email || '—'
-  const rawHtml = intervention.interrupt.details.ai_response
+  const customer = getCustomerName(job)
+  const rawHtml = typeof intervention.interrupt.details.ai_response === 'string'
+    ? intervention.interrupt.details.ai_response : ''
   const excerpt = stripHtml(rawHtml).slice(0, 200)
 
   return (

@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
+import { ErrorBoundary } from '../ui/ErrorBoundary'
 
 export function Layout() {
   return (
@@ -9,7 +10,9 @@ export function Layout() {
       <div id="main">
         <Topbar />
         <div id="content">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </div>
     </>

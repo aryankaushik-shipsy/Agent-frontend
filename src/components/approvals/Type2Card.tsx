@@ -1,7 +1,7 @@
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime, formatDate } from '../../utils/time'
-import { getTierFromTasks } from '../../utils/status'
+import { getTierFromTasks, getCustomerName } from '../../utils/status'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import type { JobDetail, Intervention } from '../../types/job'
@@ -18,7 +18,7 @@ interface Props {
 export function Type2Card({ job, intervention, payload, onAction, loading }: Props) {
   const carrier = payload.carriers[0]
   const hasSecond = payload.carriers.length > 1
-  const customer = job.info?.company_name || job.info?.sender_email || '—'
+  const customer = getCustomerName(job)
   const tier = getTierFromTasks(job)
   const tierMin = TIER_MINIMUMS[tier] ?? 5
 
@@ -64,7 +64,9 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Base Cost</span>
-            <span className="approval-meta-value">{carrier.currency_code} {carrier.subtotal.toLocaleString()}</span>
+            <span className="approval-meta-value">
+              {carrier.currency_code} {(carrier.subtotal_before_markup ?? carrier.subtotal).toLocaleString()}
+            </span>
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Markup Applied</span>
@@ -74,12 +76,12 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
             <span className="approval-meta-label">Margin $</span>
             <span className="approval-meta-value">{carrier.currency_code} {carrier.markup_amount?.toLocaleString()}</span>
           </div>
-          {carrier.validity_date && (
-            <div className="approval-meta-item">
-              <span className="approval-meta-label">Quote Validity</span>
-              <span className="approval-meta-value">{formatDate(carrier.validity_date)}</span>
-            </div>
-          )}
+          <div className="approval-meta-item">
+            <span className="approval-meta-label">Quote Validity</span>
+            <span className="approval-meta-value">
+              {carrier.validity_date ? formatDate(carrier.validity_date) : '—'}
+            </span>
+          </div>
         </div>
       )}
 

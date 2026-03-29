@@ -26,8 +26,8 @@ export function CarrierCard({ carrier, selected, isBestPrice, onClick }: Props) 
             )}
           </div>
           <div className="carrier-meta">
-            {carrier.transit_days != null && `Transit: ${carrier.transit_days} day(s)`}
-            {carrier.validity_date && ` · Validity: ${formatDate(carrier.validity_date)}`}
+            Transit: {carrier.transit_days != null ? `${carrier.transit_days} day(s)` : '—'}
+            {' · '}Validity: {carrier.validity_date ? formatDate(carrier.validity_date) : '—'}
           </div>
         </div>
       </div>
@@ -37,14 +37,14 @@ export function CarrierCard({ carrier, selected, isBestPrice, onClick }: Props) 
           {carrier.currency_code} {carrier.grand_total.toLocaleString()}
         </div>
         <div className="carrier-currency">
-          Base: {formatCurrency(carrier.subtotal, carrier.currency_code)}
+          Base: {formatCurrency(carrier.subtotal_before_markup ?? carrier.subtotal, carrier.currency_code)}
         </div>
       </div>
 
       <div className="carrier-breakdown">
         {carrier.breakdown.map((line, i) => (
           <div key={i} style={{ display: 'contents' }}>
-            <div className="line-label">{line.label}</div>
+            <div className="line-label">{line.charge}</div>
             <div className="line-val">{carrier.currency_code} {line.amount.toLocaleString()}</div>
           </div>
         ))}

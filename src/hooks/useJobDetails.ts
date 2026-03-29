@@ -7,7 +7,9 @@ export function useJobDetails(jobIds: number[]) {
     queries: jobIds.map((id) => ({
       queryKey: ['job', id],
       queryFn: () => getJobById(id),
-      staleTime: 60_000,
+      staleTime: 300_000,       // 5 min — survive tab switches and back-navigation
+      gcTime: 600_000,          // keep in cache 10 min
+      refetchOnWindowFocus: false,
     })),
   })
 

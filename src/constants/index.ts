@@ -6,4 +6,4 @@ export const TIER_MINIMUMS: Record<string, number> = {
 
 export const HITL_THRESHOLD = 5000
 
-export const RFQ_WORKFLOW_ID = import.meta.env.VITE_RFQ_WORKFLOW_ID as string
+export const RFQ_WORKFLOW_ID = parseInt(import.meta.env.VITE_RFQ_WORKFLOW_ID as string, 10)

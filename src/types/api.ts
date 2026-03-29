@@ -2,7 +2,7 @@ import type { Job } from './job'
 
 export interface JobFilter {
   statuses?: string[]
-  workflow_ids?: string[]
+  workflow_ids?: number[]
   active_interventions?: boolean
   created_at_from?: string
   created_at_to?: string

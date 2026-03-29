@@ -1,6 +1,7 @@
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime, formatDate } from '../../utils/time'
+import { getCustomerName } from '../../utils/status'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { Type1Payload } from '../../types/hitl'
 
@@ -14,7 +15,7 @@ interface Props {
 
 export function Type1Card({ job, intervention, payload, onAction, loading }: Props) {
   const item = payload.items[0]
-  const customer = job.info?.company_name || job.info?.sender_email || '—'
+  const customer = getCustomerName(job)
 
   return (
     <div className="approval-card type-confirm">

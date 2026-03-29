@@ -11,7 +11,7 @@ interface Props {
 export function ContextBanner({ job, type1, markupPct }: Props) {
   const item = type1.items[0]
   const tier = getTierFromTasks(job)
-  const customer = getCustomerName(job.info)
+  const customer = getCustomerName(job)
 
   return (
     <div className="banner banner-blue">
