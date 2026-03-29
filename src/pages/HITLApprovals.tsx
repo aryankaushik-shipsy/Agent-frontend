@@ -30,7 +30,7 @@ export function HITLApprovals() {
       await mutateAsync({ id: interventionId, action })
       // optimistically remove the job card
       const jobDetail = details.find((d) =>
-        d.interventions.some((i) => i.id === interventionId)
+        (d.interventions ?? []).some((i) => i.id === interventionId)
       )
       if (jobDetail) {
         setRemovedIds((prev) => new Set([...prev, jobDetail.id]))

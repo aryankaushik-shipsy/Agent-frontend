@@ -9,7 +9,7 @@ import { CompletionBar } from '../components/audit-trail/CompletionBar'
 import { TaskEntry } from '../components/audit-trail/TaskEntry'
 import { InterventionEntry } from '../components/audit-trail/InterventionEntry'
 import { Spinner } from '../components/ui/Spinner'
-import { detectHitlType } from '../utils/hitl'
+import { detectHitlType, getPendingIntervention } from '../utils/hitl'
 import type { Task, Intervention } from '../types/job'
 
 type TimelineEntry =
@@ -65,7 +65,7 @@ export function EmailAuditTrail() {
   const filtered = timeline.filter((e) => matchesStage(e, stageFilter))
 
   const isLive = job?.status === 'running'
-  const pending = job?.interventions.find((i) => i.status === 'pending')
+  const pending = getPendingIntervention(job?.interventions)
   const pendingType = pending ? detectHitlType(pending) : null
 
   return (

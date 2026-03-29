@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention } from '../utils/hitl'
+import { getPendingIntervention, detectHitlType } from '../utils/hitl'
 import { getCustomerName } from '../utils/status'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
@@ -20,9 +20,10 @@ export function EmailPreview() {
   }
 
   const pending = getPendingIntervention(job.interventions)
-  const isType3 = pending?.interrupt.actions.some((a) => a.id === 'send_email')
+  const hitlType = pending ? detectHitlType(pending) : null
+  const hasEmailAction = pending?.interrupt.actions.some((a) => a.id === 'send_email') ?? false
 
-  if (!pending || !isType3) {
+  if (!pending || (hitlType !== 3 && !hasEmailAction)) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Email Preview stage.</div>
@@ -30,10 +31,11 @@ export function EmailPreview() {
     )
   }
 
-  const emailHtml = pending.interrupt.details.ai_response
+  const emailHtml = typeof pending.interrupt.details.ai_response === 'string'
+    ? pending.interrupt.details.ai_response : ''
   const summary = pending.interrupt.details.summary
-  const recipient = job.info?.sender_email || job.info?.company_name || '—'
-  const customer = getCustomerName(job.info)
+  const recipient = getCustomerName(job)
+  const customer = recipient
 
   async function handleAction(action: string) {
     if (!pending) return

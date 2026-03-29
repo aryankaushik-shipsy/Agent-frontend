@@ -28,7 +28,7 @@ export function QuoteBuilder() {
   }
 
   // Find interventions
-  const type1Int = job.interventions.find((i) => {
+  const type1Int = (job.interventions ?? []).find((i) => {
     const p = parseAiResponse<Record<string, unknown>>(i)
     return p && 'items' in p
   })

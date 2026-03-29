@@ -3,7 +3,7 @@ import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { Button } from '../ui/Button'
 import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { derivePipelineStage, getCustomerName } from '../../utils/status'
+import { derivePipelineStage, getCustomerName, getShipmentRow } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { JobDetail } from '../../types/job'
@@ -27,9 +27,16 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
     const stage = detail ? derivePipelineStage(detail, hitlType) : { label: 'Loading…', variant: 'gray' as BadgeVariant }
 
     let customer = '—', route = '—', mode = '—', weight = '—'
-    if (detail) {
-      customer = getCustomerName(detail.info)
-      const type1 = detail.interventions.find((i) => {
+    customer = getCustomerName(detail ?? job)
+    // Primary: input_json.data[0] (in list response, no detail fetch needed)
+    const shipment = getShipmentRow(job)
+    if (shipment?.origin && shipment?.destination) {
+      route = `${shipment.origin} → ${shipment.destination}`
+      mode = shipment.mode ?? '—'
+      weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
+    } else if (detail) {
+      // Fallback: HITL Type 1 payload
+      const type1 = (detail.interventions ?? []).find((i) => {
         const p = parseAiResponse<Record<string, unknown>>(i)
         return p && 'items' in p
       })

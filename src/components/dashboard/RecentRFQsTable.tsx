@@ -3,7 +3,7 @@ import { useJobDetails } from '../../hooks/useJobDetails'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { deriveJobStatus } from '../../utils/status'
+import { deriveJobStatus, getShipmentRow } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { Type1Payload } from '../../types/hitl'
@@ -56,8 +56,15 @@ export function RecentRFQsTable({ jobs, loading }: Props) {
             const status = deriveJobStatus(job.status, hitlType)
 
             let route = '—', mode = '—', weight = '—'
-            if (detail) {
-              const type1 = detail.interventions.find((i) => {
+            // Primary: input_json.data[0] (in list response, no detail fetch needed)
+            const shipment = getShipmentRow(job)
+            if (shipment?.origin && shipment?.destination) {
+              route = `${shipment.origin} → ${shipment.destination}`
+              mode = shipment.mode ?? '—'
+              weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
+            } else if (detail) {
+              // Fallback: HITL Type 1 payload
+              const type1 = (detail.interventions ?? []).find((i) => {
                 const parsed = parseAiResponse<Record<string, unknown>>(i)
                 return parsed && 'items' in parsed
               })

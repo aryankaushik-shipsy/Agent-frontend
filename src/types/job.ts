@@ -1,12 +1,32 @@
 export type JobStatus = 'queued' | 'running' | 'success' | 'failed' | 'interrupted'
 
+export interface InfoField {
+  label: string
+  value: string
+  meta?: unknown
+}
+
 export interface Job {
   id: number
   status: JobStatus
   created_at: string
-  runtime: number
-  ticket_id?: string
-  info?: Record<string, string>
+  started_at?: string | null
+  completed_at?: string | null
+  runtime: number | null
+  ticket_id?: string | null
+  workflow_id?: number
+  assigned_agent?: string
+  // platform-processed labelled fields (from input_data_fields config)
+  info?: InfoField[]
+  // raw form submission data
+  input_json?: {
+    sender_email?: string
+    company_name?: string
+    contact_name?: string
+    commodity?: string
+    notes?: string
+    data?: unknown[]
+  }
 }
 
 export interface Task {
@@ -24,7 +44,8 @@ export interface InterruptAction {
 }
 
 export interface InterruptDetails {
-  ai_response: string
+  // May be a pre-parsed object (Type 1/2) or a raw HTML string (Type 3)
+  ai_response: string | Record<string, unknown>
   summary?: string
 }
 
@@ -38,14 +59,17 @@ export interface Interrupt {
 
 export interface Intervention {
   id: number
-  status: 'pending' | 'resolved'
+  // No "status" field — pending = action_taken == null, completed = action_taken is set
   interrupt: Interrupt
-  action_taken?: string
-  action_taken_by_user_name?: string
-  action_taken_at?: string
+  action_taken?: string | null
+  action_taken_by_user_name?: string | null
+  action_taken_at?: string | null
+  note_reference?: string | null
+  created_at?: string
 }
 
 export interface JobDetail extends Job {
   tasks: Task[]
-  interventions: Intervention[]
+  interventions: Intervention[]        // API key (confirmed)
+  hitl_records?: Intervention[]        // optional alias — kept for safety
 }
