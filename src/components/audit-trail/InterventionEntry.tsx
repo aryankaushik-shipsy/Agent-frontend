@@ -16,8 +16,10 @@ export function InterventionEntry({ intervention }: Props) {
   const hitlType = detectHitlType(intervention)
   const typeLabel = hitlType ? TYPE_LABELS[hitlType] : 'HITL Intervention'
 
+  // completed = action_taken is set; pending = action_taken is null
+  const isCompleted = intervention.action_taken != null
   let avatarClass = 'tl-avatar-yellow'
-  if (intervention.status === 'completed') {
+  if (isCompleted) {
     avatarClass = intervention.action_taken === 'end' ? 'tl-avatar-red' : 'tl-avatar-green'
   }
 
