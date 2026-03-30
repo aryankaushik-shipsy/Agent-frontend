@@ -32,7 +32,7 @@ export function Type1Card({ job, intervention, payload, onAction, loading }: Pro
           </div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
-          {formatRelativeTime(job.created_at)}
+          {formatRelativeTime(intervention.created_at ?? job.created_at)}
         </div>
       </div>
 

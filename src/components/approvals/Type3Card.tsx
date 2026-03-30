@@ -33,7 +33,7 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
           <div className="approval-sub">{customer}</div>
         </div>
         <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
-          {formatRelativeTime(job.created_at)}
+          {formatRelativeTime(intervention.created_at ?? job.created_at)}
         </div>
       </div>
 

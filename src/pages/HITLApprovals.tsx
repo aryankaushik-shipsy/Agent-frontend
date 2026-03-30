@@ -8,6 +8,7 @@ import { presetToRange } from '../components/pipeline/DateRangeFilter'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
+import { RFQ_WORKFLOW_ID } from '../constants'
 
 export function HITLApprovals() {
   const { from, to } = presetToRange('today')
@@ -15,7 +16,13 @@ export function HITLApprovals() {
 
   const { data: insights } = useInsights(from, to)
   const { data: jobsData, isLoading: jobsLoading } = useJobs(
-    { active_interventions: true, result_per_page: 50, order_by: 'desc' }
+    {
+      workflow_ids: [RFQ_WORKFLOW_ID],
+      active_interventions: true,
+      result_per_page: 50,
+      order_by: 'desc',
+      sort_by: 'created_at',
+    }
   )
   const jobs = jobsData?.jobs ?? []
   const { data: details, isLoading: detailsLoading } = useJobDetails(jobs.map((j) => j.id))

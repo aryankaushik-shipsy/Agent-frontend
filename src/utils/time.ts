@@ -1,6 +1,8 @@
-export function formatRelativeTime(isoString: string): string {
+export function formatRelativeTime(isoString: string | undefined | null): string {
+  if (!isoString) return '—'
   const now = Date.now()
   const then = new Date(isoString).getTime()
+  if (isNaN(then)) return '—'
   const diff = Math.floor((now - then) / 1000)
 
   if (diff < 60) return `${diff}s ago`
