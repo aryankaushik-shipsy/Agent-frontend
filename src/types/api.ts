@@ -20,23 +20,20 @@ export interface JobsListResponse {
 }
 
 export interface AgentRunPayload {
-  workflowId: string | number
-  sender_email: string
-  company_name: string
-  contact_name?: string
-  commodity: string
-  notes?: string
-  data: Array<{
-    origin: string
-    destination: string
-    mode: 'Air'
-    weight_kg: number
-    date: string
-    length_cm: number
-    width_cm: number
-    height_cm: number
-    number_of_boxes: number
-  }>
+  input_params: {
+    threadID: string
+    subject: string
+    message: string
+    sender: string
+    messageID: string
+    data: string
+  }
+  objectId: string
+  objectType: 'Email'
+  hubCode: string
+  workflowId: string
+  source: string
+  ticketId: string
 }
 
 export interface AgentRunResponse {

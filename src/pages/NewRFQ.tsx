@@ -43,24 +43,44 @@ export function NewRFQ() {
     e.preventDefault()
     setError(null)
     try {
+      // Generate unique IDs matching the format expected by the agent API
+      const hexId = (len: number) =>
+        Array.from(crypto.getRandomValues(new Uint8Array(Math.ceil(len / 2))))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+          .slice(0, len)
+
+      const threadID  = hexId(14)
+      const messageID = hexId(16)
+      const objectId  = hexId(13)
+
+      // Build natural-language message the agent will parse
+      const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm}`
+      const messageParts = [
+        `${form.origin} to ${form.destination} on ${form.date}`,
+        `${form.weight_kg}kg`,
+        `${dims} ${form.number_of_boxes} piece(s) by air`,
+        form.commodity  ? `commodity: ${form.commodity}`     : '',
+        form.company_name ? `company: ${form.company_name}` : '',
+        form.contact_name ? `contact: ${form.contact_name}` : '',
+        form.notes        ? `notes: ${form.notes}`           : '',
+      ].filter(Boolean)
+
       const res = await mutateAsync({
-        workflowId: RFQ_WORKFLOW_ID,
-        sender_email: form.sender_email,
-        company_name: form.company_name,
-        contact_name: form.contact_name || undefined,
-        commodity: form.commodity,
-        notes: form.notes || undefined,
-        data: [{
-          origin: form.origin,
-          destination: form.destination,
-          mode: 'Air',
-          weight_kg: parseFloat(form.weight_kg),
-          date: form.date,
-          length_cm: parseFloat(form.length_cm),
-          width_cm: parseFloat(form.width_cm),
-          height_cm: parseFloat(form.height_cm),
-          number_of_boxes: parseInt(form.number_of_boxes, 10),
-        }],
+        input_params: {
+          threadID,
+          subject:   'rfq',
+          message:   messageParts.join(', '),
+          sender:    form.sender_email,
+          messageID,
+          data:      `${form.origin} to ${form.destination}\n`,
+        },
+        objectId,
+        objectType: 'Email',
+        hubCode:    '',
+        workflowId: String(RFQ_WORKFLOW_ID),
+        source:     'n8n',
+        ticketId:   '',
       })
       setSubmitted({ jobId: res.job_id })
     } catch (err) {
