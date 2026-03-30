@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueries, keepPreviousData } from '@tanstack/react-query'
+import { useQueries, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { getJobs } from '../api/jobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { FilterTabs, type PipelineTab } from '../components/pipeline/FilterTabs'
@@ -50,16 +50,24 @@ const TABS: PipelineTab[] = ['all', 'processing', 'pending', 'sent', 'failed']
 const COUNT_TABS: PipelineTab[] = ['processing', 'pending', 'sent', 'failed']
 
 export function QuotePipeline() {
+  const queryClient = useQueryClient()
   const [activeTab, setActiveTab]   = useState<PipelineTab>('all')
   const [page, setPage]             = useState(1)
   const [search, setSearch]         = useState('')
   const [datePreset, setDatePreset] = useState<DatePreset>('today')
   const [dateRange, setDateRange]   = useState<DateRange>(() => presetToRange('today'))
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
 
   function handleDateChange(preset: DatePreset, range: DateRange) {
     setDatePreset(preset)
     setDateRange(range)
-    setPage(1)          // reset pagination when date changes
+    setPage(1)
+  }
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ['jobs'] })
+    queryClient.invalidateQueries({ queryKey: ['job'] })
+    setLastRefreshed(new Date())
   }
 
   // Fetch jobs for current tab + date range
@@ -67,7 +75,8 @@ export function QuotePipeline() {
     queries: [{
       queryKey: ['jobs', getFilter(activeTab, page, dateRange)],
       queryFn: () => getJobs(getFilter(activeTab, page, dateRange)),
-      staleTime: 30_000,
+      staleTime: 15_000,
+      refetchInterval: 15_000,
       placeholderData: keepPreviousData,
       refetchOnWindowFocus: false,
     }],
@@ -138,10 +147,26 @@ export function QuotePipeline() {
 
   return (
     <div>
-      {/* Top controls: search + date filter */}
+      {/* Top controls: search + date filter + refresh */}
       <div className="pipeline-controls">
         <SearchBox value={search} onChange={setSearch} />
-        <DateRangeFilter value={datePreset} onChange={handleDateChange} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>
+            {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+          <button
+            onClick={handleRefresh}
+            title="Refresh now"
+            style={{
+              background: 'none', border: '1px solid var(--gray-200)', borderRadius: 6,
+              padding: '5px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--gray-600)',
+              display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
+            }}
+          >
+            ↻ Refresh
+          </button>
+          <DateRangeFilter value={datePreset} onChange={handleDateChange} />
+        </div>
       </div>
 
       <FilterTabs

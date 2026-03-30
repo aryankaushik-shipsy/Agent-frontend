@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { getInsights } from '../api/insights'
 import { getJobs } from '../api/jobs'
 import { RFQ_WORKFLOW_ID } from '../constants'
@@ -18,8 +18,16 @@ const PRESET_LABELS: Record<DatePreset, string> = {
 }
 
 export function Dashboard() {
+  const queryClient = useQueryClient()
   const [datePreset, setDatePreset] = useState<DatePreset>('today')
   const [dateRange, setDateRange]   = useState<DateRange>(() => presetToRange('today'))
+  const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ['jobs'] })
+    queryClient.invalidateQueries({ queryKey: ['job'] })
+    setLastRefreshed(new Date())
+  }
 
   const { from, to } = dateRange
 
@@ -40,25 +48,29 @@ export function Dashboard() {
       {
         queryKey: ['jobs', { statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }],
         queryFn: () => getJobs({ statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }),
-        staleTime: 30_000,
+        staleTime: 15_000,
+        refetchInterval: 15_000,
       },
       // 2 — quotes sent in selected date range
       {
         queryKey: ['jobs', { statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 1 }],
         queryFn: () => getJobs({ statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 1 }),
-        staleTime: 30_000,
+        staleTime: 15_000,
+        refetchInterval: 15_000,
       },
       // 3 — recent non-intervention jobs (API excludes active_interventions when filter absent)
       {
         queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
         queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
-        staleTime: 30_000,
+        staleTime: 15_000,
+        refetchInterval: 15_000,
       },
       // 4 — recent pending-intervention jobs (separate call needed — API can't return both in one)
       {
         queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
         queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
-        staleTime: 30_000,
+        staleTime: 15_000,
+        refetchInterval: 15_000,
       },
       // 5 — completed jobs for avg runtime (scoped to selected date range)
       {
@@ -93,8 +105,22 @@ export function Dashboard() {
 
   return (
     <div>
-      {/* Date range selector — controls all metrics + recent RFQs table */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+      {/* Date range selector + manual refresh */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>
+          Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+        </span>
+        <button
+          onClick={handleRefresh}
+          title="Refresh now"
+          style={{
+            background: 'none', border: '1px solid var(--gray-200)', borderRadius: 6,
+            padding: '5px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--gray-600)',
+            display: 'flex', alignItems: 'center', gap: 4,
+          }}
+        >
+          ↻ Refresh
+        </button>
         <DateRangeFilter value={datePreset} onChange={handleDateChange} />
       </div>
 
