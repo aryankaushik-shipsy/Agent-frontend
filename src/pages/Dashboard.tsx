@@ -11,8 +11,8 @@ import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today:     'Today',
   yesterday: 'Yesterday',
-  '7d':      'Last 7 days',
-  '30d':     'Last 30 days',
+  last7:     'Last 7 days',
+  last30:    'Last 30 days',
   custom:    'Custom range',
 }
 
