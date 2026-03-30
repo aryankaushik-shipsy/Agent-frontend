@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { formatDate } from '../../utils/time'
 import { getTierFromTasks, getCustomerName } from '../../utils/status'
@@ -20,10 +21,17 @@ export function QuoteSummarySidebar({
   job, type1, selectedCarrier, selectedIndex,
   interventionId, onConfirm, onReject, loading
 }: Props) {
+  const navigate = useNavigate()
   const item = type1.items[0]
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
   const actionId = `carrier_${selectedIndex + 1}`
+
+  function handleChooseCarrier() {
+    navigate(`/pipeline/${job.id}/quote/preview`, {
+      state: { actionId, interventionId, selectedCarrier, type1, tier, customer },
+    })
+  }
 
   return (
     <div className="quote-summary-card">
@@ -99,13 +107,12 @@ export function QuoteSummarySidebar({
 
       <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
         <Button
-          variant="green"
-          loading={loading}
+          variant="primary"
           disabled={!selectedCarrier}
-          onClick={() => onConfirm(actionId)}
+          onClick={handleChooseCarrier}
           style={{ width: '100%', justifyContent: 'center' }}
         >
-          Confirm &amp; Send
+          Choose Carrier →
         </Button>
         <Button
           variant="red-outline"

@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { NewRFQ } from './pages/NewRFQ'
 import { QuotePipeline } from './pages/QuotePipeline'
 import { QuoteBuilder } from './pages/QuoteBuilder'
+import { QuotePreview } from './pages/QuotePreview'
 import { EmailPreview } from './pages/EmailPreview'
 import { HITLApprovals } from './pages/HITLApprovals'
 import { EmailAuditTrail } from './pages/EmailAuditTrail'
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="new-rfq" element={<NewRFQ />} />
               <Route path="pipeline" element={<QuotePipeline />} />
               <Route path="pipeline/:jobId/quote" element={<QuoteBuilder />} />
+              <Route path="pipeline/:jobId/quote/preview" element={<QuotePreview />} />
               <Route path="pipeline/:jobId/email-preview" element={<EmailPreview />} />
               <Route path="approvals" element={<HITLApprovals />} />
               <Route path="audit" element={<EmailAuditTrail />} />
