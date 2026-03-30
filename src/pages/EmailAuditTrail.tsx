@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { useJob } from '../hooks/useJob'
 import { RFQ_WORKFLOW_ID } from '../constants'
-import { JobSelector } from '../components/audit-trail/JobSelector'
+import { JobSearchInput } from '../components/audit-trail/JobSearchInput'
 import { StageFilter, type StageFilterValue } from '../components/audit-trail/StageFilter'
 import { CompletionBar } from '../components/audit-trail/CompletionBar'
 import { TaskEntry } from '../components/audit-trail/TaskEntry'
 import { InterventionEntry } from '../components/audit-trail/InterventionEntry'
 import { Spinner } from '../components/ui/Spinner'
 import { detectHitlType, getPendingIntervention } from '../utils/hitl'
+import { getEmailThread } from '../api/thread'
 import type { Task, Intervention } from '../types/job'
 
 type TimelineEntry =
@@ -52,6 +54,19 @@ export function EmailAuditTrail() {
 
   const { data: job, isLoading: jobLoading } = useJob(selectedJobId)
 
+  // Fetch email thread from webhook when job has a ticket_id
+  const threadId = job?.ticket_id ?? null
+  const { data: threadData, isLoading: threadLoading } = useQuery({
+    queryKey: ['thread', threadId],
+    queryFn: () => getEmailThread(threadId!),
+    enabled: !!threadId,
+    staleTime: 60_000,
+    retry: 1,
+  })
+  const threadMessages = threadData
+    ? (threadData.messages ?? threadData.thread ?? threadData.data ?? []) as Array<Record<string, unknown>>
+    : []
+
   const timeline: TimelineEntry[] = []
   if (job) {
     for (const task of job.tasks ?? []) {
@@ -72,7 +87,7 @@ export function EmailAuditTrail() {
     <div>
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 20, flexWrap: 'wrap' }}>
         {jobsLoading ? <Spinner size="sm" /> : (
-          <JobSelector
+          <JobSearchInput
             jobs={jobs}
             selectedId={selectedJobId}
             onChange={(id) => { setSelectedJobId(id); setStageFilter('all') }}
@@ -127,6 +142,73 @@ export function EmailAuditTrail() {
               ))}
             </div>
           </div>
+
+          {/* Email thread from webhook */}
+          {job.ticket_id && (
+            <div className="card card-body" style={{ marginTop: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div className="section-title" style={{ margin: 0 }}>Email Thread</div>
+                <span style={{ fontSize: 11, color: 'var(--gray-400)', fontFamily: 'monospace' }}>
+                  {job.ticket_id}
+                </span>
+                {threadLoading && <Spinner size="sm" />}
+              </div>
+
+              {!threadLoading && threadMessages.length === 0 && (
+                <div style={{ color: 'var(--gray-400)', fontSize: 13, textAlign: 'center', padding: '16px 0' }}>
+                  No email messages found for this thread.
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {threadMessages.map((msg, i) => {
+                  const from    = String(msg.from ?? msg.sender ?? '')
+                  const to      = String(msg.to ?? msg.recipient ?? '')
+                  const subject = String(msg.subject ?? '')
+                  const body    = String(msg.body ?? msg.snippet ?? msg.text ?? '')
+                  const html    = String(msg.html ?? '')
+                  const ts      = String(msg.timestamp ?? msg.date ?? msg.created_at ?? '')
+                  const isOutbound = from.toLowerCase().includes('shipsy') || from.toLowerCase().includes('freight')
+
+                  return (
+                    <div key={i} style={{
+                      border: '1px solid var(--gray-100)', borderRadius: 8, overflow: 'hidden',
+                      borderLeft: `3px solid ${isOutbound ? '#2563eb' : '#d97706'}`,
+                    }}>
+                      <div style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                        padding: '10px 14px', background: 'var(--gray-50)', flexWrap: 'wrap', gap: 6,
+                      }}>
+                        <div>
+                          {subject && <div style={{ fontWeight: 600, fontSize: 13 }}>{subject}</div>}
+                          <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
+                            {from && <span><b>From:</b> {from}</span>}
+                            {to && <span style={{ marginLeft: 12 }}><b>To:</b> {to}</span>}
+                          </div>
+                        </div>
+                        {ts && <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{ts}</span>}
+                      </div>
+                      {(html || body) && (
+                        <div style={{ padding: '12px 14px' }}>
+                          {html
+                            ? <iframe
+                                srcDoc={html}
+                                sandbox="allow-same-origin"
+                                style={{ width: '100%', border: 'none', minHeight: 120, maxHeight: 400 }}
+                                title={`email-${i}`}
+                              />
+                            : <p style={{ fontSize: 13, color: 'var(--gray-700)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
+                                {body}
+                              </p>
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </>
       )}
 
