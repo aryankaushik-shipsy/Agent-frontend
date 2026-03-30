@@ -32,6 +32,7 @@ export interface Job {
 export interface Task {
   id: number
   title: string
+  node_key?: string
   status: string
   running_time: number
   summary?: string

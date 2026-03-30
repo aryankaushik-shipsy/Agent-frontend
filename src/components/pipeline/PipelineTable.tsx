@@ -51,10 +51,12 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
       }
     }
 
-    const runningTask = detail?.tasks?.find((t) => t.status === 'running')
-    const agentStep = runningTask?.title ?? '—'
+    // Latest task = last in array (tasks are ordered by execution)
+    const tasks = detail?.tasks ?? []
+    const latestTask = tasks.length > 0 ? tasks[tasks.length - 1] : null
+    const latestTaskKey = latestTask?.node_key ?? latestTask?.title ?? '—'
 
-    return { job, detail, hitlType, stage, customer, route, mode, weight, agentStep }
+    return { job, detail, hitlType, stage, customer, route, mode, weight, latestTaskKey }
   }).filter((row) => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
@@ -76,7 +78,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
             <th>Mode</th>
             <th>Weight</th>
             <th>Pipeline Stage</th>
-            <th>Agent Step</th>
+            <th>Latest Task</th>
             <th>Received</th>
             <th>Action</th>
           </tr>
@@ -89,7 +91,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
               </td>
             </tr>
           )}
-          {rows.map(({ job, hitlType, stage, customer, route, mode, weight, agentStep }) => (
+          {rows.map(({ job, hitlType, stage, customer, route, mode, weight, latestTaskKey }) => (
             <tr key={job.id}>
               <td className="td-bold td-mono">#RFQ-{job.id}</td>
               <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -101,8 +103,8 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
               <td>
                 <Badge variant={stage.variant as BadgeVariant}>{stage.label}</Badge>
               </td>
-              <td style={{ fontSize: 12, color: 'var(--gray-600)' }}>
-                {agentStep !== '—' ? agentStep : (
+              <td style={{ fontSize: 12, color: 'var(--gray-600)', fontFamily: 'monospace' }}>
+                {latestTaskKey !== '—' ? latestTaskKey : (
                   job.status === 'running' ? <Spinner size="sm" /> : '—'
                 )}
               </td>
