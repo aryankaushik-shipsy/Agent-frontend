@@ -44,10 +44,10 @@ export function Dashboard() {
         queryFn: () => getInsights(from, to),
         staleTime: 60_000,
       },
-      // 1 — active RFQs count (not date-scoped — shows what's currently running)
+      // 1 — active RFQs count — anything non-terminal (running, queued, interrupted)
       {
-        queryKey: ['jobs', { statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }],
-        queryFn: () => getJobs({ statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }),
+        queryKey: ['jobs', { statuses: ['running', 'queued', 'interrupted'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }],
+        queryFn: () => getJobs({ statuses: ['running', 'queued', 'interrupted'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },

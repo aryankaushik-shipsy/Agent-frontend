@@ -7,10 +7,10 @@ const POLL_INTERVAL = 30_000
 export function useBadgeCounts() {
   const results = useQueries({
     queries: [
-      // Active pipeline jobs (running + queued) for this workflow
+      // Active pipeline jobs — non-terminal (running, queued, interrupted)
       {
-        queryKey: ['jobs', { statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }],
-        queryFn: () => getJobs({ statuses: ['running', 'queued'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }),
+        queryKey: ['jobs', { statuses: ['running', 'queued', 'interrupted'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }],
+        queryFn: () => getJobs({ statuses: ['running', 'queued', 'interrupted'], workflow_ids: [RFQ_WORKFLOW_ID], result_per_page: 1 }),
         refetchInterval: POLL_INTERVAL,
         staleTime: POLL_INTERVAL,
       },
