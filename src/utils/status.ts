@@ -8,9 +8,10 @@ export interface StatusResult {
   variant: BadgeVariant
 }
 
-// Task titles that confirm the quote email has been sent and the job is now waiting
-// for customer acknowledgement rather than an internal action.
-const QUOTE_SENT_TASK_KEYS = ['carrier_1', 'send_email', 'send_quote', 'notify_customer']
+// Task title that confirms the final quote email has been dispatched and the job
+// is now waiting for customer acknowledgement. send_email is intentionally excluded
+// as it fires at intermediate steps too and would produce false positives.
+const QUOTE_SENT_TASK_KEYS = ['carrier_1', 'carrier_2']
 
 /**
  * Returns true when a job is `interrupted` but the quote email has already been
