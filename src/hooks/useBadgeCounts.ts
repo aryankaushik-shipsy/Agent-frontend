@@ -1,13 +1,14 @@
 import { useQueries } from '@tanstack/react-query'
 import { getJobs } from '../api/jobs'
 import { getInsights } from '../api/insights'
-import { getTodayUTCRange } from '../utils/time'
+import { presetToRange } from '../components/pipeline/DateRangeFilter'
 import { RFQ_WORKFLOW_ID } from '../constants'
 
 const POLL_INTERVAL = 30_000
 
 export function useBadgeCounts() {
-  const { from, to } = getTodayUTCRange()
+  // Use local-time "today" range — same as Dashboard so they share the insights cache entry
+  const { from, to } = presetToRange('today')
 
   const results = useQueries({
     queries: [

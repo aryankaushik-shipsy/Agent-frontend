@@ -4,13 +4,13 @@ import { useJobs } from '../hooks/useJobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { useInsights } from '../hooks/useInsights'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getTodayUTCRange } from '../utils/time'
+import { presetToRange } from '../components/pipeline/DateRangeFilter'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
 
 export function HITLApprovals() {
-  const { from, to } = getTodayUTCRange()
+  const { from, to } = presetToRange('today')
   const queryClient = useQueryClient()
 
   const { data: insights } = useInsights(from, to)
