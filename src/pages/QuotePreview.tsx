@@ -1,6 +1,10 @@
+import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useHitlAction } from '../hooks/useHitlAction'
+import { getJobById } from '../api/jobs'
+import { getPendingIntervention, detectHitlType } from '../utils/hitl'
 import { Button } from '../components/ui/Button'
+import { Spinner } from '../components/ui/Spinner'
 import { formatDate } from '../utils/time'
 import type { Carrier } from '../types/carrier'
 import type { Type1Payload } from '../types/hitl'
@@ -19,6 +23,8 @@ export function QuotePreview() {
   const navigate = useNavigate()
   const location = useLocation()
   const { mutateAsync, isPending } = useHitlAction()
+  const [waitingForPreview, setWaitingForPreview] = useState(false)
+  const [waitingTimedOut, setWaitingTimedOut] = useState(false)
 
   const state = location.state as PreviewState | null
 
@@ -35,9 +41,64 @@ export function QuotePreview() {
   const { actionId, interventionId, selectedCarrier, type1, tier, customer } = state
   const item = type1.items[0]
 
+  if (waitingForPreview) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 16 }}>
+        <Spinner size="lg" />
+        <div style={{ fontWeight: 600, fontSize: 16 }}>Generating email preview…</div>
+        <div style={{ color: 'var(--gray-500)', fontSize: 13, textAlign: 'center', maxWidth: 340 }}>
+          The agent is preparing your quote email. This usually takes 20–30 seconds.
+        </div>
+      </div>
+    )
+  }
+
+  if (waitingTimedOut) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 16 }}>
+        <div style={{ fontSize: 32 }}>⏱</div>
+        <div style={{ fontWeight: 600, fontSize: 16 }}>Taking longer than expected</div>
+        <div style={{ color: 'var(--gray-500)', fontSize: 13, textAlign: 'center', maxWidth: 340 }}>
+          The email preview hasn't appeared yet. Check HITL Approvals — it may arrive shortly.
+        </div>
+        <Button variant="primary" onClick={() => navigate('/approvals')}>
+          Go to HITL Approvals
+        </Button>
+      </div>
+    )
+  }
+
   async function handleSend() {
     await mutateAsync({ id: interventionId, action: actionId })
-    navigate('/pipeline')
+    setWaitingForPreview(true)
+
+    // Poll for the new Type 3 (email preview) HITL entry the agent will create.
+    // Max ~45 s (15 attempts × 3 s each).
+    const jobIdNum = parseInt(jobId!)
+    let attempts = 0
+    const MAX = 15
+
+    const poll = async () => {
+      attempts++
+      try {
+        const job = await getJobById(jobIdNum)
+        const pending = getPendingIntervention(job.interventions)
+        if (pending && detectHitlType(pending) === 3) {
+          navigate('/approvals')
+          return
+        }
+      } catch {
+        // network hiccup — keep trying
+      }
+      if (attempts < MAX) {
+        setTimeout(poll, 3_000)
+      } else {
+        setWaitingForPreview(false)
+        setWaitingTimedOut(true)
+      }
+    }
+
+    setTimeout(poll, 2_000) // brief initial delay so the backend can process
   }
 
   return (
