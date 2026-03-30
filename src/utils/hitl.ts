@@ -22,13 +22,21 @@ export function parseAiResponse<T>(intervention: Intervention): T | null {
 }
 
 export function detectHitlType(intervention: Intervention): HitlType | null {
-  const resolved = resolveAiResponse(intervention.interrupt.details.ai_response)
+  const details = intervention?.interrupt?.details
+  if (!details) return null
+  const raw = details.ai_response
+  // No ai_response at all — check summary/message for an email-type card
+  if (raw == null) {
+    return details.summary ? 3 : null
+  }
+  const resolved = resolveAiResponse(raw)
   if (resolved === null) return null
   // String that failed JSON.parse → raw HTML → Type 3
   if (typeof resolved === 'string') return 3
   if ('items' in resolved) return 1
   if ('carriers' in resolved) return 2
-  return null
+  // Object but unrecognised shape — treat as Type 3 (show summary/raw text)
+  return 3
 }
 
 export function getPendingIntervention(interventions: Intervention[] | undefined): Intervention | undefined {

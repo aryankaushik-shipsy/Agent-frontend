@@ -2,12 +2,14 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { deriveJobStatus, getShipmentRow } from '../../utils/status'
+import { parseAiResponse } from '../../utils/hitl'
 import { formatRelativeTime } from '../../utils/time'
-import type { Job } from '../../types/job'
+import type { Job, JobDetail } from '../../types/job'
+import type { Type1Payload } from '../../types/hitl'
 import type { BadgeVariant } from '../../utils/status'
 
 interface Props {
-  jobs: Job[]
+  jobs: Array<Job | JobDetail>
   loading: boolean
   pendingIds?: Set<number>   // jobs known to have an active intervention
 }
@@ -53,13 +55,28 @@ export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
               ? { label: 'Pending Approval', variant: 'yellow' as BadgeVariant }
               : deriveJobStatus(job.status, null)
 
-            // Route / mode / weight from list response input_json (no detail fetch)
+            // Route / mode / weight — try input_json first, then HITL Type1 payload
             let route = '—', mode = '—', weight = '—'
             const shipment = getShipmentRow(job)
             if (shipment?.origin && shipment?.destination) {
-              route = `${shipment.origin} → ${shipment.destination}`
-              mode  = shipment.mode ?? '—'
+              route  = `${shipment.origin} → ${shipment.destination}`
+              mode   = shipment.mode ?? '—'
               weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
+            } else if ('interventions' in job && job.interventions?.length) {
+              // Fallback: extract from HITL Type 1 payload (ai_response.items[0])
+              const type1 = job.interventions.find((i) => {
+                const p = parseAiResponse<Record<string, unknown>>(i)
+                return p && 'items' in p
+              })
+              if (type1) {
+                const payload = parseAiResponse<Type1Payload>(type1)
+                if (payload?.items?.[0]) {
+                  const item = payload.items[0]
+                  route  = `${item.origin} → ${item.destination}`
+                  mode   = item.mode ?? '—'
+                  weight = item.weight_kg != null ? `${item.weight_kg} kg` : '—'
+                }
+              }
             }
 
             const handleClick = () => {
