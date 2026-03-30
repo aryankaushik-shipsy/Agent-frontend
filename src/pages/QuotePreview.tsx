@@ -84,7 +84,7 @@ export function QuotePreview() {
         const job = await getJobById(jobIdNum)
         const pending = getPendingIntervention(job.interventions)
         if (pending && detectHitlType(pending) === 3) {
-          navigate('/approvals')
+          navigate(`/pipeline/${jobIdNum}/email-preview`)
           return
         }
       } catch {

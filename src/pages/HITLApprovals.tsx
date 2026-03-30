@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { useHitlAction } from '../hooks/useHitlAction'
+import { getPendingIntervention, detectHitlType } from '../utils/hitl'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
@@ -45,7 +46,12 @@ export function HITLApprovals() {
     }
   }
 
-  const visibleDetails = details.filter((d) => !removedIds.has(d.id))
+  // Email preview (Type 3) is handled inline in the QuotePreview flow — exclude here
+  const visibleDetails = details.filter((d) => {
+    if (removedIds.has(d.id)) return false
+    const pending = getPendingIntervention(d.interventions)
+    return pending ? detectHitlType(pending) !== 3 : false
+  })
   const loading = jobsLoading || detailsLoading
 
   return (
