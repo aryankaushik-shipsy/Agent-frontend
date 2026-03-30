@@ -90,3 +90,26 @@ export function getTierFromTasks(job: JobDetail): string {
   const raw = (out.tier as string) ?? ''
   return TIER_DISPLAY[raw.toLowerCase()] ?? raw ?? '—'
 }
+
+export interface TierInfo {
+  tierLabel: string        // "Bronze" / "Silver" / "Gold"
+  tierRaw: string          // "base" / "silver" / "gold"
+  preferredCurrency: string // "AED"
+  currencyRate: number     // rate from USD e.g. 3.67
+  currencyName: string     // "UAE Dirham"
+}
+
+export function getTierInfo(job: JobDetail): TierInfo | null {
+  const tierTask = job.tasks?.find((t) => t.title?.toLowerCase().includes('get_tier'))
+  if (!tierTask?.output_json) return null
+  const out = tierTask.output_json as Record<string, unknown>
+  const raw = (out.tier as string) ?? ''
+  const currInfo = out.currency_info as { name?: string; rate_from_usd?: number } | undefined
+  return {
+    tierRaw: raw,
+    tierLabel: TIER_DISPLAY[raw.toLowerCase()] ?? raw ?? '—',
+    preferredCurrency: (out.preferred_currency as string) ?? 'USD',
+    currencyRate: currInfo?.rate_from_usd ?? 1,
+    currencyName: currInfo?.name ?? '',
+  }
+}

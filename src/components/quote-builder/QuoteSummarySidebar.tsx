@@ -70,8 +70,28 @@ export function QuoteSummarySidebar({
               {selectedCarrier.validity_date ? formatDate(selectedCarrier.validity_date) : '—'}
             </span>
           </div>
+          {selectedCarrier.markup_pct != null && (
+            <div className="qs-row">
+              <span className="qs-label">Markup</span>
+              <span className="qs-val">{selectedCarrier.markup_pct}%</span>
+            </div>
+          )}
+          {selectedCarrier.markup_amount != null && (
+            <div className="qs-row">
+              <span className="qs-label">Margin earned</span>
+              <span className="qs-val" style={{ color: 'var(--green-600, #16a34a)', fontWeight: 600 }}>
+                {selectedCarrier.currency_code} {selectedCarrier.markup_amount.toLocaleString()}
+              </span>
+            </div>
+          )}
+          {selectedCarrier.vat_amount != null && (
+            <div className="qs-row">
+              <span className="qs-label">VAT {selectedCarrier.vat_pct != null ? `(${selectedCarrier.vat_pct}%)` : ''}</span>
+              <span className="qs-val">{selectedCarrier.currency_code} {selectedCarrier.vat_amount.toLocaleString()}</span>
+            </div>
+          )}
           <div className="qs-total">
-            <span>Total</span>
+            <span>Grand Total</span>
             <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>
           </div>
         </>

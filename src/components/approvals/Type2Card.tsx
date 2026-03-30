@@ -1,7 +1,8 @@
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime, formatDate } from '../../utils/time'
-import { getTierFromTasks, getCustomerName } from '../../utils/status'
+import { getTierInfo, getCustomerName } from '../../utils/status'
+import { getCarriersFromTask } from '../../utils/carrier'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import type { JobDetail, Intervention } from '../../types/job'
@@ -16,11 +17,18 @@ interface Props {
 }
 
 export function Type2Card({ job, intervention, payload, onAction, loading }: Props) {
-  const carrier = payload.carriers[0]
-  const hasSecond = payload.carriers.length > 1
-  const customer = getCustomerName(job)
-  const tier = getTierFromTasks(job)
+  // Use full carriers from task if available (have markup/subtotal data)
+  const taskCarriers = getCarriersFromTask(job)
+  const carriers = taskCarriers.length > 0 ? taskCarriers : payload.carriers
+  const carrier = carriers[0]
+  const tierInfo = getTierInfo(job)
+  const tier = tierInfo?.tierLabel ?? '—'
   const tierMin = TIER_MINIMUMS[tier] ?? 5
+  const customer = getCustomerName(job)
+
+  // Non-end actions mapped to carriers; end action becomes Reject button
+  const carrierActions = intervention.interrupt.actions.filter(a => a.id !== 'end')
+  const hasEndAction = intervention.interrupt.actions.some(a => a.id === 'end')
 
   return (
     <div className="approval-card">
@@ -90,17 +98,25 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
       )}
 
       <div className="approval-actions">
-        <Button variant="green" loading={loading} onClick={() => onAction('carrier_1')}>
-          Approve Carrier 1
-        </Button>
-        {hasSecond && (
-          <Button variant="yellow" disabled={loading} onClick={() => onAction('carrier_2')}>
-            Approve Carrier 2
+        {carrierActions.map((action, i) => {
+          const name = carriers[i]?.carrier
+          return (
+            <Button
+              key={action.id}
+              variant={i === 0 ? 'green' : 'yellow'}
+              loading={i === 0 ? loading : false}
+              disabled={loading}
+              onClick={() => onAction(action.id)}
+            >
+              {name ? `Approve ${name}` : action.label}
+            </Button>
+          )
+        })}
+        {hasEndAction && (
+          <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
+            Reject
           </Button>
         )}
-        <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
-          Reject
-        </Button>
       </div>
     </div>
   )

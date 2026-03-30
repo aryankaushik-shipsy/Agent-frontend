@@ -4,7 +4,8 @@ import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { parseAiResponse, getPendingIntervention } from '../utils/hitl'
 import { getTierFromTasks } from '../utils/status'
-import { findBestPriceIndex, getCarriersFromTask } from '../utils/carrier'
+import { findBestPriceIndex, findBestMarginIndex, getCarriersFromTask } from '../utils/carrier'
+import { getTierInfo } from '../utils/status'
 import { ContextBanner } from '../components/quote-builder/ContextBanner'
 import { CarrierCard } from '../components/quote-builder/CarrierCard'
 import { MarginValidation } from '../components/quote-builder/MarginValidation'
@@ -50,8 +51,10 @@ export function QuoteBuilder() {
     ? getCarriersFromTask(job)
     : type2.carriers
   const bestIdx = findBestPriceIndex(carriers)
+  const bestMarginIdx = findBestMarginIndex(carriers)
   const selectedCarrier = carriers[selectedIdx]
-  const tier = getTierFromTasks(job)
+  const tierInfo = getTierInfo(job)
+  const tier = tierInfo?.tierLabel ?? getTierFromTasks(job)
 
   async function handleAction(action: string) {
     if (!type2Int) return
@@ -72,6 +75,8 @@ export function QuoteBuilder() {
               index={i}
               selected={selectedIdx === i}
               isBestPrice={i === bestIdx}
+              isBestMargin={i === bestMarginIdx}
+              tierLabel={tierInfo?.tierLabel}
               onClick={() => setSelectedIdx(i)}
             />
           ))}

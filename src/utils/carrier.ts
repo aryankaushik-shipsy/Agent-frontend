@@ -18,6 +18,17 @@ export function getCarrierInitials(name: string): string {
     .join('')
 }
 
+export function findBestMarginIndex(carriers: Carrier[]): number {
+  if (!carriers.length) return 0
+  let bestIdx = 0
+  let bestMargin = carriers[0].markup_amount ?? 0
+  for (let i = 1; i < carriers.length; i++) {
+    const m = carriers[i].markup_amount ?? 0
+    if (m > bestMargin) { bestMargin = m; bestIdx = i }
+  }
+  return bestIdx
+}
+
 export function findBestPriceIndex(carriers: Carrier[]): number {
   if (!carriers.length) return 0
   let bestIdx = 0
