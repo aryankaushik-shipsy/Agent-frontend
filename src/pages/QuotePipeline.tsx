@@ -73,6 +73,28 @@ export function QuotePipeline() {
     }],
   })[0]
 
+  // When on "All" tab, also fetch intervention jobs — the API silently excludes them
+  // when active_interventions param is absent, so they'd never appear otherwise.
+  const allInterventionFilter: JobFilter = {
+    workflow_ids: [RFQ_WORKFLOW_ID],
+    result_per_page: 50,
+    page_number: 1,
+    order_by: 'desc',
+    sort_by: 'created_at',
+    created_at_from: dateRange.from,
+    created_at_to: dateRange.to,
+    active_interventions: true,
+  }
+  const { data: allInterventionData } = useQueries({
+    queries: [{
+      queryKey: ['jobs', allInterventionFilter],
+      queryFn: () => getJobs(allInterventionFilter),
+      enabled: activeTab === 'all',
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+    }],
+  })[0]
+
   // Fetch counts for specific tabs only — "All" is computed as their sum
   const countResults = useQueries({
     queries: COUNT_TABS.map((tab) => ({
@@ -93,9 +115,18 @@ export function QuotePipeline() {
     all: COUNT_TABS.reduce((sum, tab) => sum + (tabCounts[tab] ?? 0), 0),
   }
 
-  const jobs       = jobsData?.jobs ?? []
+  // For "All" tab: merge regular + intervention jobs, deduplicate, sort newest-first
+  const jobs = (() => {
+    const base = jobsData?.jobs ?? []
+    if (activeTab !== 'all') return base
+    const withIntervention = allInterventionData?.jobs ?? []
+    const seen = new Set<number>()
+    return [...withIntervention, ...base]
+      .filter((j) => { if (seen.has(j.id)) return false; seen.add(j.id); return true })
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  })()
   const totalPages = jobsData?.total_pages ?? 1
-  const totalJobs  = jobsData?.total ?? 0
+  const totalJobs  = counts.all ?? jobsData?.total ?? 0
 
   const { data: details, isLoading: detailsLoading } = useJobDetails(jobs.map((j) => j.id))
 
