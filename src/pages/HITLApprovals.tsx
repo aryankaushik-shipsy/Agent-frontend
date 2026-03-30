@@ -2,19 +2,15 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { useJobDetails } from '../hooks/useJobDetails'
-import { useInsights } from '../hooks/useInsights'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { presetToRange } from '../components/pipeline/DateRangeFilter'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
 import { RFQ_WORKFLOW_ID } from '../constants'
 
 export function HITLApprovals() {
-  const { from, to } = presetToRange('today')
   const queryClient = useQueryClient()
 
-  const { data: insights } = useInsights(from, to)
   const { data: jobsData, isLoading: jobsLoading } = useJobs(
     {
       workflow_ids: [RFQ_WORKFLOW_ID],
@@ -54,7 +50,7 @@ export function HITLApprovals() {
 
   return (
     <div>
-      <WarningBanner count={insights?.active_interventions ?? 0} />
+      <WarningBanner count={jobsData?.total ?? 0} />
 
       {loading && (
         <div style={{ textAlign: 'center', padding: '40px' }}>

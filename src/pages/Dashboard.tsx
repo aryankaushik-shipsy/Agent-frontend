@@ -93,7 +93,7 @@ export function Dashboard() {
       <MetricsGrid
         activeRFQs={activeRes.data?.total}
         quotesToday={todayRes.data?.total}
-        pendingApprovals={insightsRes.data?.active_interventions}
+        pendingApprovals={pendingRes.data?.total}
         loadingActive={activeRes.isLoading}
         loadingToday={todayRes.isLoading}
         loadingInsights={insightsRes.isLoading}
