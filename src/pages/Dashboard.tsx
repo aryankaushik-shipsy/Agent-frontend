@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query'
 import { getInsights } from '../api/insights'
 import { getJobs } from '../api/jobs'
 import { RFQ_WORKFLOW_ID } from '../constants'
+import { useJobDetails } from '../hooks/useJobDetails'
 import { MetricsGrid } from '../components/dashboard/MetricsGrid'
 import { RecentRFQsTable } from '../components/dashboard/RecentRFQsTable'
 import { AIPerformancePanel } from '../components/dashboard/AIPerformancePanel'
@@ -83,6 +84,13 @@ export function Dashboard() {
       .slice(0, 10)
   })()
 
+  // Fetch full details for visible recent jobs (needed for input_json → route/mode/weight)
+  // Safe now that we're date-scoped — only today's jobs (~10 max)
+  const { data: recentDetails, isLoading: detailsLoading } = useJobDetails(recentJobs.map(j => j.id))
+  const detailMap = new Map(recentDetails.map(d => [d.id, d]))
+  // Prefer detail (has input_json) over list-level job; fall back while loading
+  const recentJobsWithDetails = recentJobs.map(j => detailMap.get(j.id) ?? j)
+
   return (
     <div>
       {/* Date range selector — controls all metrics + recent RFQs table */}
@@ -108,8 +116,8 @@ export function Dashboard() {
             </div>
           </div>
           <RecentRFQsTable
-            jobs={recentJobs}
-            loading={recentRes.isLoading && pendingRes.isLoading}
+            jobs={recentJobsWithDetails}
+            loading={(recentRes.isLoading && pendingRes.isLoading) || detailsLoading}
             pendingIds={pendingIds}
           />
         </div>
