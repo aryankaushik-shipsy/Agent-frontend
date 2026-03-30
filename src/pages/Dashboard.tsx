@@ -53,13 +53,13 @@ export function Dashboard() {
         queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 30_000,
       },
-      // 5 — recent pending-intervention jobs (separate call needed — API can't return both in one)
+      // 4 — recent pending-intervention jobs (separate call needed — API can't return both in one)
       {
         queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
         queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 30_000,
       },
-      // 4 — completed jobs for avg runtime (scoped to selected date range)
+      // 5 — completed jobs for avg runtime (scoped to selected date range)
       {
         queryKey: ['jobs', { statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100 }],
         queryFn: () => getJobs({ statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100 }),
@@ -68,7 +68,7 @@ export function Dashboard() {
     ],
   })
 
-  const [insightsRes, activeRes, todayRes, recentRes, completedRes, pendingRes] = results
+  const [insightsRes, activeRes, todayRes, recentRes, pendingRes, completedRes] = results
 
   // IDs of jobs with active interventions (fetched separately — API excludes them otherwise)
   const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))
