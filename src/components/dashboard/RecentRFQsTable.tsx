@@ -1,22 +1,19 @@
 import { useNavigate } from 'react-router-dom'
-import { useJobDetails } from '../../hooks/useJobDetails'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
-import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
 import { deriveJobStatus, getShipmentRow } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
-import type { Type1Payload } from '../../types/hitl'
 import type { BadgeVariant } from '../../utils/status'
 
 interface Props {
   jobs: Job[]
   loading: boolean
+  pendingIds?: Set<number>   // jobs known to have an active intervention
 }
 
-export function RecentRFQsTable({ jobs, loading }: Props) {
+export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
   const navigate = useNavigate()
-  const { data: details, isLoading: detailsLoading } = useJobDetails(jobs.map((j) => j.id))
 
   if (loading) {
     return (
@@ -50,46 +47,31 @@ export function RecentRFQsTable({ jobs, loading }: Props) {
             </tr>
           )}
           {jobs.map((job) => {
-            const detail = details.find((d) => d.id === job.id)
-            const pending = detail ? getPendingIntervention(detail.interventions) : undefined
-            const hitlType = pending ? detectHitlType(pending) : null
-            const status = deriveJobStatus(job.status, hitlType)
+            const isPending = pendingIds?.has(job.id) ?? false
+            // Status badge — mark pending-intervention jobs clearly
+            const status = isPending
+              ? { label: 'Pending Approval', variant: 'yellow' as BadgeVariant }
+              : deriveJobStatus(job.status, null)
 
+            // Route / mode / weight from list response input_json (no detail fetch)
             let route = '—', mode = '—', weight = '—'
-            // Primary: input_json.data[0] (in list response, no detail fetch needed)
             const shipment = getShipmentRow(job)
             if (shipment?.origin && shipment?.destination) {
               route = `${shipment.origin} → ${shipment.destination}`
-              mode = shipment.mode ?? '—'
+              mode  = shipment.mode ?? '—'
               weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
-            } else if (detail) {
-              // Fallback: HITL Type 1 payload
-              const type1 = (detail.interventions ?? []).find((i) => {
-                const parsed = parseAiResponse<Record<string, unknown>>(i)
-                return parsed && 'items' in parsed
-              })
-              if (type1) {
-                const payload = parseAiResponse<Type1Payload>(type1)
-                if (payload?.items[0]) {
-                  const item = payload.items[0]
-                  route = `${item.origin} → ${item.destination}`
-                  mode = item.mode
-                  weight = `${item.weight_kg} kg`
-                }
-              }
             }
 
             const handleClick = () => {
-              if (hitlType === 2) navigate(`/pipeline/${job.id}/quote`)
-              else if (hitlType === 3) navigate(`/pipeline/${job.id}/email-preview`)
+              if (isPending)                  navigate('/approvals')
               else if (job.status === 'success') navigate(`/audit/${job.id}`)
-              else navigate('/pipeline')
+              else                            navigate('/pipeline')
             }
 
             return (
               <tr key={job.id} onClick={handleClick} style={{ cursor: 'pointer' }}>
                 <td className="td-bold td-mono">#RFQ-{job.id}</td>
-                <td>{detailsLoading && !detail ? <Spinner size="sm" /> : route}</td>
+                <td>{route}</td>
                 <td>{mode}</td>
                 <td>{weight}</td>
                 <td>

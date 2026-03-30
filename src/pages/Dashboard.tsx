@@ -70,6 +70,9 @@ export function Dashboard() {
 
   const [insightsRes, activeRes, todayRes, recentRes, completedRes, pendingRes] = results
 
+  // IDs of jobs with active interventions (fetched separately — API excludes them otherwise)
+  const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))
+
   // Merge regular + pending-intervention jobs, deduplicate, sort newest first, cap at 10
   const recentJobs = (() => {
     const all = [...(recentRes.data?.jobs ?? []), ...(pendingRes.data?.jobs ?? [])]
@@ -107,6 +110,7 @@ export function Dashboard() {
           <RecentRFQsTable
             jobs={recentJobs}
             loading={recentRes.isLoading && pendingRes.isLoading}
+            pendingIds={pendingIds}
           />
         </div>
 
