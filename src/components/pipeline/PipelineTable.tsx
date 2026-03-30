@@ -111,7 +111,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
               </td>
               <td>
                 {hitlType === 1 && (
-                  <Button variant="ghost" onClick={() => navigate('/approvals')} style={{ fontSize: 12, padding: '4px 10px' }}>
+                  <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     Review
                   </Button>
                 )}

@@ -82,9 +82,9 @@ export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
             }
 
             const handleClick = () => {
-              if (isPending)                  navigate('/approvals')
+              if (isPending)                     navigate(`/approvals/${job.id}`)
               else if (job.status === 'success') navigate(`/audit/${job.id}`)
-              else                            navigate('/pipeline')
+              else                               navigate('/pipeline')
             }
 
             return (

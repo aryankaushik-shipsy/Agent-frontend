@@ -39,6 +39,11 @@ export function deriveJobStatus(
   if (status === 'interrupted') {
     if (isAwaitingAck({ status, tasks }))
       return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
+    const ratesDone = (tasks ?? []).some(
+      (t) => t.title?.toLowerCase().includes('get_rate') &&
+             (t.status === 'success' || t.status === 'completed')
+    )
+    if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
@@ -56,7 +61,15 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
 
   // Must check awaiting-ack BEFORE the generic interrupted fallback
   if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
-  if (job.status === 'interrupted') return { label: 'Interrupted', variant: 'yellow' }
+  if (job.status === 'interrupted') {
+    // Interrupted before get_rate completed → agent is asking for clarification
+    const ratesDone = (job.tasks ?? []).some(
+      (t) => t.title?.toLowerCase().includes('get_rate') &&
+             (t.status === 'success' || t.status === 'completed')
+    )
+    if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
+    return { label: 'Interrupted', variant: 'yellow' }
+  }
 
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
