@@ -1,4 +1,4 @@
-import type { JobDetail, JobStatus } from '../types/job'
+import type { JobDetail, JobStatus, Task } from '../types/job'
 import type { HitlType } from '../types/hitl'
 
 export type BadgeVariant = 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'gray'
@@ -8,16 +8,40 @@ export interface StatusResult {
   variant: BadgeVariant
 }
 
+// Task titles that confirm the quote email has been sent and the job is now waiting
+// for customer acknowledgement rather than an internal action.
+const QUOTE_SENT_TASK_KEYS = ['carrier_1', 'send_email', 'send_quote', 'notify_customer']
+
+/**
+ * Returns true when a job is `interrupted` but the quote email has already been
+ * dispatched — indicated by a completed task matching QUOTE_SENT_TASK_KEYS.
+ * The job will stay interrupted until the customer responds, so we need this
+ * separate check to avoid labelling it as a blocked/error state.
+ */
+export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean {
+  if (job.status !== 'interrupted') return false
+  return (job.tasks ?? []).some(
+    (t) =>
+      QUOTE_SENT_TASK_KEYS.some((key) => t.title?.toLowerCase().includes(key)) &&
+      (t.status === 'success' || t.status === 'completed')
+  )
+}
+
 export function deriveJobStatus(
   status: JobStatus,
-  hitlType: HitlType | null
+  hitlType: HitlType | null,
+  tasks?: Task[]
 ): StatusResult {
   if (status === 'queued') return { label: 'Queued', variant: 'gray' }
   if (status === 'success') return { label: 'Sent', variant: 'green' }
   if (status === 'failed') return { label: 'Failed', variant: 'red' }
-  if (status === 'interrupted') return { label: 'Interrupted', variant: 'yellow' }
+  if (status === 'interrupted') {
+    if (isAwaitingAck({ status, tasks }))
+      return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
+    return { label: 'Interrupted', variant: 'yellow' }
+  }
 
-  // running or interrupted with pending HITL
+  // running — check HITL type
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
   if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
@@ -28,19 +52,22 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
   if (job.status === 'success') return { label: 'Quote Sent', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
+
+  // Must check awaiting-ack BEFORE the generic interrupted fallback
+  if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
   if (job.status === 'interrupted') return { label: 'Interrupted', variant: 'yellow' }
 
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
   if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
 
-  // running, no hitl — check task title
+  // running, no hitl — check currently running task title
   const runningTask = job.tasks?.find((t) => t.status === 'running')
   const title = runningTask?.title?.toLowerCase() ?? ''
-  if (title.includes('get_tier')) return { label: 'Extracting Details', variant: 'blue' }
-  if (title.includes('get_rate')) return { label: 'Fetching Rates', variant: 'blue' }
-  if (title.includes('calculate')) return { label: 'Calculating Quote', variant: 'blue' }
-  if (title.includes('generate')) return { label: 'Generating Email', variant: 'blue' }
+  if (title.includes('get_tier'))   return { label: 'Extracting Details', variant: 'blue' }
+  if (title.includes('get_rate'))   return { label: 'Fetching Rates', variant: 'blue' }
+  if (title.includes('calculate'))  return { label: 'Calculating Quote', variant: 'blue' }
+  if (title.includes('generate'))   return { label: 'Generating Email', variant: 'blue' }
 
   return { label: 'Processing', variant: 'blue' }
 }

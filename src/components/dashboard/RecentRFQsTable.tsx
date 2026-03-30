@@ -51,9 +51,11 @@ export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
           {jobs.map((job) => {
             const isPending = pendingIds?.has(job.id) ?? false
             // Status badge — mark pending-intervention jobs clearly
+            // Pass tasks so deriveJobStatus can detect "Quote Sent · Awaiting Ack"
+            const tasks = 'tasks' in job ? job.tasks : undefined
             const status = isPending
               ? { label: 'Pending Approval', variant: 'yellow' as BadgeVariant }
-              : deriveJobStatus(job.status, null)
+              : deriveJobStatus(job.status, null, tasks)
 
             // Route / mode / weight — try input_json first, then HITL Type1 payload
             let route = '—', mode = '—', weight = '—'
