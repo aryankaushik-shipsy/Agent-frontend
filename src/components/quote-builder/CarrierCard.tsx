@@ -34,15 +34,17 @@ export function CarrierCard({ carrier, selected, isBestPrice, onClick }: Props) 
 
       <div className="carrier-price-row">
         <div className="carrier-total">
-          {carrier.currency_code} {carrier.grand_total.toLocaleString()}
+          {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
         </div>
         <div className="carrier-currency">
-          Base: {formatCurrency(carrier.subtotal_before_markup ?? carrier.subtotal, carrier.currency_code)}
+          {(carrier.subtotal_before_markup ?? carrier.subtotal) != null
+            ? `Base: ${formatCurrency(carrier.subtotal_before_markup ?? carrier.subtotal, carrier.currency_code)}`
+            : ''}
         </div>
       </div>
 
       <div className="carrier-breakdown">
-        {carrier.breakdown.map((line, i) => (
+        {(carrier.breakdown ?? []).map((line, i) => (
           <div key={i} style={{ display: 'contents' }}>
             <div className="line-label">{line.charge}</div>
             <div className="line-val">{carrier.currency_code} {line.amount.toLocaleString()}</div>

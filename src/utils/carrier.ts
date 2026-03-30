@@ -1,4 +1,14 @@
 import type { Carrier } from '../types/carrier'
+import type { JobDetail } from '../types/job'
+
+// Reads full carrier data (with breakdown, markup, subtotal) from the
+// calculate_final_price task output — more complete than the intervention payload
+export function getCarriersFromTask(job: JobDetail): Carrier[] {
+  const task = job.tasks?.find((t) => t.title === 'calculate_final_price')
+  if (!task?.output_json) return []
+  const out = task.output_json as { results?: Carrier[] }
+  return out.results ?? []
+}
 
 export function getCarrierInitials(name: string): string {
   return name

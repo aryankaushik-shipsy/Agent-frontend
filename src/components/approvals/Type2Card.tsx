@@ -59,22 +59,22 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
           <div className="approval-meta-item">
             <span className="approval-meta-label">Total Quote Value</span>
             <span className="approval-meta-value" style={{ fontSize: 15, color: 'var(--dark)' }}>
-              {carrier.currency_code} {carrier.grand_total.toLocaleString()}
+              {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
             </span>
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Base Cost</span>
             <span className="approval-meta-value">
-              {carrier.currency_code} {(carrier.subtotal_before_markup ?? carrier.subtotal).toLocaleString()}
+              {carrier.currency_code} {(carrier.subtotal_before_markup ?? carrier.subtotal)?.toLocaleString() ?? '—'}
             </span>
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Markup Applied</span>
-            <span className="approval-meta-value">{carrier.markup_pct}% (min: {tierMin}%)</span>
+            <span className="approval-meta-value">{carrier.markup_pct != null ? `${carrier.markup_pct}% (min: ${tierMin}%)` : '—'}</span>
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Margin $</span>
-            <span className="approval-meta-value">{carrier.currency_code} {carrier.markup_amount?.toLocaleString()}</span>
+            <span className="approval-meta-value">{carrier.currency_code} {carrier.markup_amount?.toLocaleString() ?? '—'}</span>
           </div>
           <div className="approval-meta-item">
             <span className="approval-meta-label">Quote Validity</span>

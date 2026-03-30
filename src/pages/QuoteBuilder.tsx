@@ -4,7 +4,7 @@ import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { parseAiResponse, getPendingIntervention } from '../utils/hitl'
 import { getTierFromTasks } from '../utils/status'
-import { findBestPriceIndex } from '../utils/carrier'
+import { findBestPriceIndex, getCarriersFromTask } from '../utils/carrier'
 import { ContextBanner } from '../components/quote-builder/ContextBanner'
 import { CarrierCard } from '../components/quote-builder/CarrierCard'
 import { MarginValidation } from '../components/quote-builder/MarginValidation'
@@ -44,7 +44,11 @@ export function QuoteBuilder() {
     )
   }
 
-  const carriers = type2.carriers
+  // Prefer full carrier data from calculate_final_price task (has breakdown,
+  // markup, subtotal). Fall back to intervention payload carriers if task missing.
+  const carriers = getCarriersFromTask(job).length > 0
+    ? getCarriersFromTask(job)
+    : type2.carriers
   const bestIdx = findBestPriceIndex(carriers)
   const selectedCarrier = carriers[selectedIdx]
   const tier = getTierFromTasks(job)
