@@ -46,6 +46,8 @@ function getCountFilter(tab: PipelineTab, dateRange: DateRange): JobFilter {
 }
 
 const TABS: PipelineTab[] = ['all', 'processing', 'pending', 'sent', 'failed']
+// "All" count is derived — API excludes active_interventions jobs when filter is absent
+const COUNT_TABS: PipelineTab[] = ['processing', 'pending', 'sent', 'failed']
 
 export function QuotePipeline() {
   const [activeTab, setActiveTab]   = useState<PipelineTab>('all')
@@ -71,9 +73,9 @@ export function QuotePipeline() {
     }],
   })[0]
 
-  // Fetch counts for all tabs (scoped to same date range)
+  // Fetch counts for specific tabs only — "All" is computed as their sum
   const countResults = useQueries({
-    queries: TABS.map((tab) => ({
+    queries: COUNT_TABS.map((tab) => ({
       queryKey: ['jobs', getCountFilter(tab, dateRange)],
       queryFn: () => getJobs(getCountFilter(tab, dateRange)),
       staleTime: 60_000,
@@ -81,9 +83,15 @@ export function QuotePipeline() {
     })),
   })
 
-  const counts = Object.fromEntries(
-    TABS.map((tab, i) => [tab, countResults[i].data?.total])
-  ) as Record<PipelineTab, number | undefined>
+  const tabCounts = Object.fromEntries(
+    COUNT_TABS.map((tab, i) => [tab, countResults[i].data?.total ?? 0])
+  ) as Record<PipelineTab, number>
+
+  // "All" = sum of all specific tab counts (includes pending approval jobs)
+  const counts: Record<PipelineTab, number | undefined> = {
+    ...tabCounts,
+    all: COUNT_TABS.reduce((sum, tab) => sum + (tabCounts[tab] ?? 0), 0),
+  }
 
   const jobs       = jobsData?.jobs ?? []
   const totalPages = jobsData?.total_pages ?? 1
