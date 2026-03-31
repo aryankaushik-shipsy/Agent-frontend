@@ -59,12 +59,17 @@ function taskDone(tasks: Task[], ...keywords: string[]): boolean {
 function deriveCompletedStages(job: JobDetail): Set<string> {
   const tasks = job.tasks ?? []
   const done = new Set<string>(['received'])
-  if (taskDone(tasks, 'get_tier', 'extract'))        done.add('extraction')
-  if (taskDone(tasks, 'get_rate', 'rate'))           done.add('rate')
-  if (taskDone(tasks, 'calculate'))                  done.add('calculation')
+  if (taskDone(tasks, 'get_tier', 'extract'))              done.add('extraction')
+  if (taskDone(tasks, 'get_rate', 'rate'))                 done.add('rate')
+  if (taskDone(tasks, 'calculate'))                        done.add('calculation')
   if (taskDone(tasks, 'generate', 'draft', 'email_draft')) done.add('draft')
-  if ((job.interventions ?? []).some((i) => i.action_taken)) done.add('review')
-  if (job.status === 'success')                      done.add('sent')
+  const reviewDone = (job.interventions ?? []).some((i) => i.action_taken)
+  if (reviewDone) {
+    // If review was completed, email draft must have happened before it
+    done.add('draft')
+    done.add('review')
+  }
+  if (job.status === 'success')                            done.add('sent')
   return done
 }
 
@@ -146,8 +151,10 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
     staleTime: 30_000,
   })
 
+  // Prefer ticket_id from the list job; fall back to the detail once it loads
+  const threadId = listJob.ticket_id ?? jobDetail?.ticket_id ?? null
+
   // Primary request: email thread from webhook
-  const threadId = listJob.ticket_id ?? null
   const { data: threadData, isLoading: threadLoading, isError: threadError } = useQuery({
     queryKey: ['thread', threadId],
     queryFn: () => getEmailThread(threadId!),
