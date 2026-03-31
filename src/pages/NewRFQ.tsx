@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { RFQ_WORKFLOW_ID } from '../constants'
@@ -32,8 +32,16 @@ const EMPTY: FormState = {
 export function NewRFQ() {
   const navigate = useNavigate()
   const [form, setForm]           = useState<FormState>(EMPTY)
-  const [isPending, setIsPending] = useState(false)
-  const [submitted, setSubmitted] = useState<{ jobId: number } | null>(null)
+  const [isPending, setIsPending]   = useState(false)
+  const [copied, setCopied]         = useState(false)
+
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }, [])
+  const [submitted, setSubmitted] = useState<{ jobId: number | null; threadId: string | null } | null>(null)
   const [error, setError]         = useState<string | null>(null)
 
   function set(key: keyof FormState) {
@@ -61,7 +69,7 @@ export function NewRFQ() {
       const res = await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
-          name:      form.contact_name || form.company_name,
+          name:      form.company_name,
           threadID:  '',
           subject:   'rfq',
           message,
@@ -76,9 +84,12 @@ export function NewRFQ() {
         source:     'n8n',
         ticketId:   '',
       })
-      // Response is an array: [{ job_id, status, ... }]
+      // Response may be [{job_id, status, ...}] or [{id, threadId, labelIds}]
       const payload = Array.isArray(res.data) ? res.data[0] : res.data
-      setSubmitted({ jobId: payload?.job_id ?? null })
+      setSubmitted({
+        jobId:    payload?.job_id ?? null,
+        threadId: payload?.threadId ?? payload?.id ?? null,
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
     } finally {
@@ -95,33 +106,64 @@ export function NewRFQ() {
           </svg>
           <div className="banner-content">
             <div className="banner-title">
-              RFQ {submitted.jobId ? `#${submitted.jobId}` : ''} queued successfully
+              RFQ {submitted.jobId ? `#${submitted.jobId}` : ''} submitted successfully
             </div>
-            <div>Agent is processing your request. Typically completes in ~4 minutes.</div>
+            <div>The agent is processing your quotation request. The RFQ entry will be visible on the dashboard in 1–2 minutes.</div>
           </div>
         </div>
 
-        {submitted.jobId && (
-          <div style={{
-            marginTop: 16, padding: '14px 18px', background: 'white',
-            borderRadius: 8, border: '1px solid var(--gray-100)',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <div>
-              <div style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 4 }}>Job ID</div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16 }}>
-                #RFQ-{submitted.jobId}
+        <div style={{
+          marginTop: 16, padding: '14px 18px', background: 'white',
+          borderRadius: 8, border: '1px solid var(--gray-100)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+        }}>
+          <div style={{ display: 'flex', gap: 24 }}>
+            {submitted.jobId && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 3 }}>Job ID</div>
+                <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15 }}>
+                  #RFQ-{submitted.jobId}
+                </div>
               </div>
-            </div>
-            <Link
-              to={`/pipeline?highlight=${submitted.jobId}`}
-              className="btn btn-primary"
-              style={{ fontSize: 13 }}
-            >
-              Track in Pipeline →
-            </Link>
+            )}
+            {submitted.threadId && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 3 }}>Reference Number</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: 'var(--gray-700)', letterSpacing: '0.01em' }}>
+                    {submitted.threadId}
+                  </span>
+                  <button
+                    onClick={() => handleCopy(submitted.threadId!)}
+                    title="Copy reference number"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
+                      borderRadius: 4, color: copied ? '#16a34a' : 'var(--gray-400)',
+                      display: 'flex', alignItems: 'center', transition: 'color 0.15s',
+                    }}
+                  >
+                    {copied ? (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
+                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
+                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+          <Link
+            to={submitted.jobId ? `/pipeline?highlight=${submitted.jobId}` : '/pipeline'}
+            className="btn btn-primary"
+            style={{ fontSize: 13, flexShrink: 0 }}
+          >
+            Track in Pipeline →
+          </Link>
+        </div>
 
         <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
           <Link to="/pipeline" className="btn btn-ghost">
@@ -245,8 +287,19 @@ export function NewRFQ() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <Button variant="ghost" type="button" onClick={() => setForm(EMPTY)}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
+          {isPending && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
+              color: 'var(--gray-500)', flex: 1,
+            }}>
+              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 15, height: 15, color: '#6366f1', flexShrink: 0 }}>
+                <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+              </svg>
+              The agent is making a quotation request on your behalf…
+            </div>
+          )}
+          <Button variant="ghost" type="button" disabled={isPending} onClick={() => setForm(EMPTY)}>
             Clear Form
           </Button>
           <Button variant="primary" type="submit" loading={isPending}>

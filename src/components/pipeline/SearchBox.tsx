@@ -4,7 +4,7 @@ interface SearchBoxProps {
   placeholder?: string
 }
 
-export function SearchBox({ value, onChange, placeholder = 'Search by ID, origin, destination…' }: SearchBoxProps) {
+export function SearchBox({ value, onChange, placeholder = 'Search by ID, route, customer, or reference…' }: SearchBoxProps) {
   return (
     <div className="search-wrap">
       <svg viewBox="0 0 24 24" fill="currentColor">

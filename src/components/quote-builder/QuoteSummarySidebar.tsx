@@ -120,8 +120,20 @@ export function QuoteSummarySidebar({
           onClick={onReject}
           style={{ width: '100%', justifyContent: 'center' }}
         >
-          Reject Quote
+          Manual Resolution
         </Button>
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 6,
+          padding: '8px 10px', background: '#fffbeb',
+          border: '1px solid #fde68a', borderRadius: 6, marginTop: 2,
+        }}>
+          <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14, color: '#d97706', flexShrink: 0, marginTop: 1 }}>
+            <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+          </svg>
+          <span style={{ fontSize: 11, color: '#92400e', lineHeight: 1.4 }}>
+            This will end the agent task and escalate to a human agent for manual resolution.
+          </span>
+        </div>
       </div>
     </div>
   )

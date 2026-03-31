@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
-import { deriveJobStatus, getShipmentRow } from '../../utils/status'
+import { deriveJobStatus, getShipmentRow, getTraceReference } from '../../utils/status'
 import { parseAiResponse } from '../../utils/hitl'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job, JobDetail } from '../../types/job'
@@ -12,9 +12,10 @@ interface Props {
   jobs: Array<Job | JobDetail>
   loading: boolean
   pendingIds?: Set<number>   // jobs known to have an active intervention
+  searchQuery?: string
 }
 
-export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
+export function RecentRFQsTable({ jobs, loading, pendingIds, searchQuery = '' }: Props) {
   const navigate = useNavigate()
 
   if (loading) {
@@ -26,6 +27,21 @@ export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
       </div>
     )
   }
+
+  const filteredJobs = searchQuery.trim()
+    ? jobs.filter((job) => {
+        const q = searchQuery.trim()
+        const ql = q.toLowerCase()
+        const traceRef = getTraceReference(job)
+        // Exact match on reference number
+        if (traceRef && traceRef.toLowerCase() === ql) return true
+        // Fuzzy match on ID or route info
+        const shipment = getShipmentRow(job)
+        const route = shipment?.origin && shipment?.destination
+          ? `${shipment.origin} ${shipment.destination}`.toLowerCase() : ''
+        return String(job.id).includes(ql) || route.includes(ql)
+      })
+    : jobs
 
   return (
     <div className="card">
@@ -41,14 +57,14 @@ export function RecentRFQsTable({ jobs, loading, pendingIds }: Props) {
           </tr>
         </thead>
         <tbody>
-          {jobs.length === 0 && (
+          {filteredJobs.length === 0 && (
             <tr>
               <td colSpan={6} style={{ textAlign: 'center', color: 'var(--gray-400)', padding: '32px' }}>
                 No recent RFQs
               </td>
             </tr>
           )}
-          {jobs.map((job) => {
+          {filteredJobs.map((job) => {
             const isPending = pendingIds?.has(job.id) ?? false
             // Status badge — mark pending-intervention jobs clearly
             // Pass tasks so deriveJobStatus can detect "Quote Sent · Awaiting Ack"

@@ -107,6 +107,20 @@ export function getInfoField(
   return info?.find((f) => f.label.toLowerCase() === label.toLowerCase())?.value ?? null
 }
 
+/** Returns the Gmail thread / trace reference ID stored in job.info, if present. */
+export function getTraceReference(
+  job: { info?: Array<{ label: string; value: string }> | null } | null | undefined
+): string | null {
+  if (!job) return null
+  return (
+    getInfoField(job.info, 'Trace Reference') ??
+    getInfoField(job.info, 'Thread ID') ??
+    getInfoField(job.info, 'threadID') ??
+    getInfoField(job.info, 'Reference') ??
+    null
+  )
+}
+
 type ShipmentRow = { origin?: string; destination?: string; mode?: string; weight_kg?: number }
 
 export function getShipmentRow(job: { input_json?: { data?: unknown[] } | null }): ShipmentRow | null {

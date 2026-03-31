@@ -3,7 +3,7 @@ import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { Button } from '../ui/Button'
 import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { derivePipelineStage, getCustomerName, getShipmentRow } from '../../utils/status'
+import { derivePipelineStage, getCustomerName, getShipmentRow, getTraceReference } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { JobDetail } from '../../types/job'
@@ -56,14 +56,19 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
     const latestTask = tasks.length > 0 ? tasks[tasks.length - 1] : null
     const latestTaskKey = latestTask?.node_key ?? latestTask?.title ?? '—'
 
-    return { job, detail, hitlType, stage, customer, route, mode, weight, latestTaskKey }
+    const traceRef = getTraceReference(detail ?? job)
+    return { job, detail, hitlType, stage, customer, route, mode, weight, latestTaskKey, traceRef }
   }).filter((row) => {
     if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
+    const q = searchQuery.trim()
+    // Exact match on reference number (case-insensitive)
+    if (row.traceRef && row.traceRef.toLowerCase() === q.toLowerCase()) return true
+    // Fuzzy match on ID, route, customer
+    const ql = q.toLowerCase()
     return (
-      String(row.job.id).includes(q) ||
-      row.route.toLowerCase().includes(q) ||
-      row.customer.toLowerCase().includes(q)
+      String(row.job.id).includes(ql) ||
+      row.route.toLowerCase().includes(ql) ||
+      row.customer.toLowerCase().includes(ql)
     )
   })
 

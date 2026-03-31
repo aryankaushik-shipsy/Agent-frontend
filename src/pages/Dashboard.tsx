@@ -8,6 +8,7 @@ import { MetricsGrid } from '../components/dashboard/MetricsGrid'
 import { RecentRFQsTable } from '../components/dashboard/RecentRFQsTable'
 import { AIPerformancePanel } from '../components/dashboard/AIPerformancePanel'
 import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
+import { SearchBox } from '../components/pipeline/SearchBox'
 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today:     'Today',
@@ -22,6 +23,7 @@ export function Dashboard() {
   const [datePreset, setDatePreset] = useState<DatePreset>('today')
   const [dateRange, setDateRange]   = useState<DateRange>(() => presetToRange('today'))
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
+  const [search, setSearch]         = useState('')
 
   function handleRefresh() {
     queryClient.invalidateQueries({ queryKey: ['jobs'] })
@@ -140,11 +142,17 @@ export function Dashboard() {
               <div className="section-title">Recent RFQs</div>
               <div className="section-sub">{PRESET_LABELS[datePreset]} — click to open</div>
             </div>
+            <SearchBox
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by ID, route, or reference…"
+            />
           </div>
           <RecentRFQsTable
             jobs={recentJobsWithDetails}
             loading={(recentRes.isLoading && pendingRes.isLoading) || detailsLoading}
             pendingIds={pendingIds}
+            searchQuery={search}
           />
         </div>
 
