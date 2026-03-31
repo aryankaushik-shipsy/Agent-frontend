@@ -27,5 +27,18 @@ export async function getJobById(jobId: number): Promise<JobDetail> {
   // Normalize key: API returns "interventions"; legacy may return "hitl_records"
   if (!raw.interventions && raw.hitl_records) raw = { ...raw, interventions: raw.hitl_records }
   raw.interventions = raw.interventions ?? []
+
+  // Normalize ticket_id: API may use several field names for the email thread identifier
+  if (!raw.ticket_id) {
+    raw.ticket_id =
+      raw.thread_id ??
+      raw.ticketId ??
+      raw.email_thread_id ??
+      raw.threadId ??
+      raw.email_id ??
+      raw.source_id ??
+      null
+  }
+
   return raw
 }

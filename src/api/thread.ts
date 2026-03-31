@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const THREAD_WEBHOOK = 'https://wbdemo.shipsy.io/webhook/get-thread'
+const THREAD_WEBHOOK = 'https://wbdemo.shipsy.io/webhook-test/get-thread'
 
 export interface ThreadMessage {
   id?: string

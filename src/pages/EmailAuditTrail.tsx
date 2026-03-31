@@ -151,8 +151,13 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
     staleTime: 30_000,
   })
 
-  // Prefer ticket_id from the list job; fall back to the detail once it loads
-  const threadId = listJob.ticket_id ?? jobDetail?.ticket_id ?? null
+  // Debug: log raw detail so we can see all fields returned by the API
+  if (jobDetail && !jobDetail.ticket_id) {
+    console.warn(`[EmailAuditTrail] job ${listJob.id} has no ticket_id. Raw keys:`, Object.keys(jobDetail))
+  }
+
+  // Prefer ticket_id from detail (normalised), then list job, then null
+  const threadId = jobDetail?.ticket_id ?? listJob.ticket_id ?? null
 
   // Primary request: email thread from webhook
   const { data: threadData, isLoading: threadLoading, isError: threadError } = useQuery({
