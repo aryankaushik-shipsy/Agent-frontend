@@ -9,8 +9,6 @@ const API_BASE = import.meta.env.PROD
 const ORG_ID       = import.meta.env.VITE_ORGANISATION_ID as string
 const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_API_KEY as string
 const USER_ID          = import.meta.env.VITE_USER_ID as string
-const USERNAME         = import.meta.env.VITE_USERNAME as string
-const PASSWORD         = import.meta.env.VITE_PASSWORD as string
 
 // Login goes through an n8n proxy webhook (server-side, no CORS restrictions).
 // The proxy forwards the request to demodashboardapi.shipsy.in with the required
@@ -55,12 +53,9 @@ let cachedToken: string | null = readStoredToken()
 let loginPromise: Promise<string> | null = null
 
 async function fetchAccessToken(): Promise<string> {
-  // POST to n8n proxy — the proxy attaches org headers and forwards to
-  // demodashboardapi.shipsy.in server-side, bypassing browser CORS entirely.
-  const res = await axios.post(
-    LOGIN_URL,
-    { username: USERNAME, password: PASSWORD }
-  )
+  // Credentials are hardcoded in the n8n HTTP Request node — no body needed.
+  // The proxy calls demodashboardapi.shipsy.in server-side and returns the token.
+  const res = await axios.post(LOGIN_URL)
   const token =
     res.data?.data?.access_token ??
     res.data?.access_token ??
