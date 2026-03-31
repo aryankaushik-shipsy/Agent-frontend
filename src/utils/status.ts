@@ -110,6 +110,7 @@ export function getCustomerName(
   if (!job) return '—'
   // Primary: job.info labeled fields (platform-processed)
   const fromInfo =
+    getInfoField(job.info, 'Customer') ??
     getInfoField(job.info, 'Company Name') ??
     getInfoField(job.info, 'Sender Email')
   if (fromInfo) return fromInfo
