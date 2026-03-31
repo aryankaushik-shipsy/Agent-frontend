@@ -12,8 +12,9 @@ const USER_ID      = import.meta.env.VITE_USER_ID as string
 const USERNAME     = import.meta.env.VITE_USERNAME as string
 const PASSWORD     = import.meta.env.VITE_PASSWORD as string
 
-// Login always hits the canonical API host directly — not through the ngrok proxy
-const LOGIN_URL = 'https://demodashboardapi.shipsy.in/api/dashboard/login'
+// Login goes through the same API base URL as all other calls (CORS is handled there).
+// demodashboardapi.shipsy.in rejects OPTIONS preflight from external origins.
+const LOGIN_URL = `${import.meta.env.VITE_API_BASE_URL as string}/api/dashboard/login`
 
 // Token is stored in localStorage so it survives page reloads.
 // We treat it as expired after TOKEN_TTL_MS to guarantee a fresh one well within
@@ -56,7 +57,9 @@ async function fetchAccessToken(): Promise<string> {
   const res = await axios.post(
     LOGIN_URL,
     { username: USERNAME, password: PASSWORD },
-    { headers: { 'content-type': 'application/json', 'organisation-id': ORG_ID } }
+    // No custom headers here — custom headers trigger a CORS OPTIONS preflight
+    // which the API server rejects. content-type is set automatically by axios.
+    { headers: { 'content-type': 'application/json' } }
   )
   const token =
     res.data?.data?.access_token ??
