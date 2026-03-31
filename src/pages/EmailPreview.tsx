@@ -170,7 +170,7 @@ export function EmailPreview() {
         </svg>
         <div className="banner-content">
           <div className="banner-title">
-            #RFQ-{job.id}{!platform && customer !== '—' ? ` · ${customer}` : ''}
+            #RFQ-{job.id}{customer !== '—' ? ` · ${customer}` : ''}
           </div>
           {summary && <div style={{ marginTop: 2 }}>{summary}</div>}
         </div>
