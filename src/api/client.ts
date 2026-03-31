@@ -6,10 +6,8 @@ const API_BASE = import.meta.env.PROD
   ? (import.meta.env.VITE_API_BASE_URL as string)
   : '/'
 
-const ORG_ID           = import.meta.env.VITE_ORGANISATION_ID as string
-const ORG_PRETTY_NAME  = import.meta.env.VITE_ORG_PRETTY_NAME as string   // e.g. "shipsyflamingo"
-const ORG_URL          = import.meta.env.VITE_ORG_URL as string            // e.g. "shipsyflamingo.demo.shipsy.io"
-const INTERNAL_KEY     = import.meta.env.VITE_INTERNAL_API_KEY as string
+const ORG_ID       = import.meta.env.VITE_ORGANISATION_ID as string
+const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_API_KEY as string
 const USER_ID          = import.meta.env.VITE_USER_ID as string
 const USERNAME         = import.meta.env.VITE_USERNAME as string
 const PASSWORD         = import.meta.env.VITE_PASSWORD as string
