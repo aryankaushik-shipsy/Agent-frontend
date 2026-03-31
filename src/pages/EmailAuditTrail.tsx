@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
@@ -9,7 +9,9 @@ import { getCustomerName } from '../utils/status'
 import { formatRelativeTime } from '../utils/time'
 import { getJobById } from '../api/jobs'
 import { getEmailThread } from '../api/thread'
+import { detectHitlType } from '../utils/hitl'
 import type { Job, JobDetail, Task } from '../types/job'
+import type { ThreadMessage } from '../api/thread'
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -167,9 +169,18 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
     staleTime: 60_000,
     retry: 1,
   })
-  const threadMessages = threadData
-    ? (threadData.messages ?? threadData.thread ?? threadData.data ?? []) as Array<Record<string, unknown>>
-    : []
+  const threadMessages: ThreadMessage[] = threadData?.messages ?? []
+
+  // Extract the HTML from the Type 3 HITL intervention (the quote email body)
+  const quoteEmailHtml = useMemo(() => {
+    if (!jobDetail) return null
+    const type3 = (jobDetail.interventions ?? []).find((inv) => detectHitlType(inv) === 3)
+    if (!type3) return null
+    const ar = type3.interrupt.details.ai_response
+    return typeof ar === 'string' ? ar : null
+  }, [jobDetail])
+
+  const [expandedMsgId, setExpandedMsgId] = useState<string | null>(null)
 
   const customer = getCustomerName(listJob)
 
@@ -248,19 +259,28 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {threadMessages.map((msg, i) => {
-            const from    = String(msg.from ?? msg.sender ?? '')
-            const to      = String(msg.to ?? msg.recipient ?? '')
-            const subject = String(msg.subject ?? '')
-            const body    = String(msg.body ?? msg.snippet ?? msg.text ?? '')
-            const html    = String(msg.html ?? '')
-            const ts      = String(msg.timestamp ?? msg.date ?? msg.created_at ?? '')
-            const isOut   = from.toLowerCase().includes('shipsy') || from.toLowerCase().includes('freight')
+            const from    = msg.From ?? ''
+            const to      = msg.To ?? ''
+            const subject = msg.Subject ?? ''
+            const snippet = msg.snippet ?? ''
+            const msgId   = msg.id ?? String(i)
+            const isOut   = (msg.labels ?? []).some((l) => l.id === 'SENT')
+            const isSentQuote = isOut && msg.payload?.mimeType === 'text/html'
+            const isExpanded  = expandedMsgId === msgId
+
+            // Parse internalDate (unix ms string → readable time)
+            let ts = ''
+            if (msg.internalDate) {
+              const d = new Date(parseInt(msg.internalDate))
+              ts = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+            }
 
             return (
-              <div key={i} style={{
+              <div key={msgId} style={{
                 border: '1px solid var(--gray-100)', borderRadius: 8, overflow: 'hidden',
                 borderLeft: `3px solid ${isOut ? '#2563eb' : '#d97706'}`,
               }}>
+                {/* Header row */}
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                   padding: '10px 14px', background: 'var(--gray-50)', flexWrap: 'wrap', gap: 6,
@@ -269,7 +289,7 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
                     {subject && <div style={{ fontWeight: 600, fontSize: 13 }}>{subject}</div>}
                     <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
                       {from && <span><b>From:</b> {from}</span>}
-                      {to && <span style={{ marginLeft: 12 }}><b>To:</b> {to}</span>}
+                      {to   && <span style={{ marginLeft: 12 }}><b>To:</b> {to}</span>}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -283,15 +303,41 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
                     {ts && <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{ts}</span>}
                   </div>
                 </div>
-                {(html || body) && (
-                  <div style={{ padding: '12px 14px' }}>
-                    {html
-                      ? <iframe srcDoc={html} sandbox="allow-same-origin" title={`email-${i}`}
-                          style={{ width: '100%', border: 'none', minHeight: 120, maxHeight: 420 }} />
-                      : <p style={{ fontSize: 13, color: 'var(--gray-700)', margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-                          {body}
-                        </p>
-                    }
+
+                {/* Snippet preview */}
+                {snippet && (
+                  <div style={{ padding: '10px 14px', borderTop: '1px solid var(--gray-100)' }}>
+                    <p style={{ fontSize: 13, color: 'var(--gray-600)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+                      {snippet}
+                    </p>
+                  </div>
+                )}
+
+                {/* "View Full Quote Email" button — only on the outbound HTML quote email */}
+                {isSentQuote && quoteEmailHtml && (
+                  <div style={{ padding: '8px 14px', borderTop: '1px solid var(--gray-100)', background: 'var(--gray-50)' }}>
+                    <button
+                      onClick={() => setExpandedMsgId(isExpanded ? null : msgId)}
+                      style={{
+                        background: 'none', border: '1px solid #2563eb', borderRadius: 5,
+                        color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        padding: '4px 12px',
+                      }}
+                    >
+                      {isExpanded ? 'Hide Full Email ↑' : 'View Full Quote Email ↓'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Expanded full HTML from Type 3 HITL payload */}
+                {isSentQuote && isExpanded && quoteEmailHtml && (
+                  <div style={{ padding: '12px 14px', borderTop: '1px solid var(--gray-100)' }}>
+                    <iframe
+                      srcDoc={quoteEmailHtml}
+                      sandbox="allow-same-origin"
+                      title={`quote-email-${i}`}
+                      style={{ width: '100%', border: 'none', minHeight: 300, maxHeight: 600 }}
+                    />
                   </div>
                 )}
               </div>

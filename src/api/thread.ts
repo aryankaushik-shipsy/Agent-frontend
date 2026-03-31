@@ -4,14 +4,17 @@ const THREAD_WEBHOOK = 'https://wbdemo.shipsy.io/webhook/get-thread'
 
 export interface ThreadMessage {
   id?: string
-  from?: string
-  to?: string
-  subject?: string
-  body?: string
-  html?: string
-  timestamp?: string
-  date?: string
+  threadId?: string
+  // Gmail-style capitalized headers
+  From?: string
+  To?: string
+  Subject?: string
   snippet?: string
+  internalDate?: string   // unix ms as string e.g. "1774940274000"
+  payload?: { mimeType?: string }
+  labels?: Array<{ id: string; name: string }>
+  sizeEstimate?: number
+  historyId?: string
   // catch-all for unknown fields
   [key: string]: unknown
 }
