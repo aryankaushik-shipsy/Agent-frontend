@@ -200,7 +200,7 @@ export function QuotePreview() {
           ← Change Carrier
         </Button>
         <Button variant="green" loading={isPending} onClick={handleSend}>
-          Send Quote
+          Confirm Carrier
         </Button>
       </div>
     </div>
