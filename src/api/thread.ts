@@ -25,10 +25,6 @@ export interface ThreadResponse {
 }
 
 export async function getEmailThread(threadID: string): Promise<ThreadResponse> {
-  const res = await axios.post(
-    THREAD_WEBHOOK,
-    JSON.stringify({ threadID }),
-    { headers: { 'Content-Type': 'text/plain' } },
-  )
+  const res = await axios.post(THREAD_WEBHOOK, { threadID })
   return res.data
 }
