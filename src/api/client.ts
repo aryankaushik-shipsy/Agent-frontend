@@ -14,8 +14,10 @@ const USER_ID          = import.meta.env.VITE_USER_ID as string
 const USERNAME         = import.meta.env.VITE_USERNAME as string
 const PASSWORD         = import.meta.env.VITE_PASSWORD as string
 
-// Login endpoint — always on the canonical dashboard API host
-const LOGIN_URL = 'https://demodashboardapi.shipsy.in/api/dashboard/login'
+// Login goes through an n8n proxy webhook (server-side, no CORS restrictions).
+// The proxy forwards the request to demodashboardapi.shipsy.in with the required
+// organisation headers. Set VITE_LOGIN_PROXY_URL to your n8n webhook URL.
+const LOGIN_URL = import.meta.env.VITE_LOGIN_PROXY_URL as string
 
 // Token is stored in localStorage so it survives page reloads.
 // We treat it as expired after TOKEN_TTL_MS to guarantee a fresh one well within
@@ -55,22 +57,11 @@ let cachedToken: string | null = readStoredToken()
 let loginPromise: Promise<string> | null = null
 
 async function fetchAccessToken(): Promise<string> {
-  // Replicates the working curl exactly:
-  //   POST application/json body  { username, password }
-  //   Headers: organisation-pretty-name, organisation-url
-  // NOTE: this triggers a CORS preflight. It will only work when the frontend
-  // is served from an origin whitelisted by demodashboardapi.shipsy.in
-  // (e.g. vendorflowdemo.demo.shipsy.io). Add that as a custom domain in Render.
+  // POST to n8n proxy — the proxy attaches org headers and forwards to
+  // demodashboardapi.shipsy.in server-side, bypassing browser CORS entirely.
   const res = await axios.post(
     LOGIN_URL,
-    { username: USERNAME, password: PASSWORD },
-    {
-      headers: {
-        'content-type': 'application/json;charset=UTF-8',
-        'organisation-pretty-name': ORG_PRETTY_NAME,
-        'organisation-url': ORG_URL,
-      },
-    }
+    { username: USERNAME, password: PASSWORD }
   )
   const token =
     res.data?.data?.access_token ??
