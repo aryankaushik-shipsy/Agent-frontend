@@ -55,7 +55,7 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
           Send Email
         </Button>
         <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
-          Cancel
+          Manual Resolution
         </Button>
       </div>
     </div>

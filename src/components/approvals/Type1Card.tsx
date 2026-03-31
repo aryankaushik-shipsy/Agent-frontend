@@ -74,7 +74,7 @@ export function Type1Card({ job, intervention, payload, onAction, loading }: Pro
           Confirm & Fetch Rates
         </Button>
         <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
-          Reject
+          Manual Resolution
         </Button>
       </div>
     </div>

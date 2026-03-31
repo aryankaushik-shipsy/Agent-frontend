@@ -34,11 +34,11 @@ export function deriveJobStatus(
   tasks?: Task[]
 ): StatusResult {
   if (status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (status === 'success') return { label: 'Sent', variant: 'green' }
+  if (status === 'success') return { label: 'Quote Accepted', variant: 'green' }
   if (status === 'failed') return { label: 'Failed', variant: 'red' }
   if (status === 'interrupted') {
     if (isAwaitingAck({ status, tasks }))
-      return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
+      return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     const ratesDone = (tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&
              (t.status === 'success' || t.status === 'completed')
@@ -56,11 +56,11 @@ export function deriveJobStatus(
 
 export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): StatusResult {
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (job.status === 'success') return { label: 'Quote Sent', variant: 'green' }
+  if (job.status === 'success') return { label: 'Quote Accepted', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
   // Must check awaiting-ack BEFORE the generic interrupted fallback
-  if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'green' }
+  if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
   if (job.status === 'interrupted') {
     // Interrupted before get_rate completed → agent is asking for clarification
     const ratesDone = (job.tasks ?? []).some(

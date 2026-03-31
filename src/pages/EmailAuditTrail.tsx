@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { RFQ_WORKFLOW_ID } from '../constants'
@@ -397,15 +397,12 @@ function JobAuditCard({ job, onGetTrail }: { job: Job; onGetTrail: (job: Job) =>
 
 export function EmailAuditTrail() {
   const { jobId: paramJobId } = useParams<{ jobId: string }>()
+  const navigate = useNavigate()
 
   const [searchQuery, setSearchQuery]     = useState('')
   const [trailJob,    setTrailJob]        = useState<Job | null>(null)
   const [lookupError, setLookupError]     = useState('')
   const [lookupLoading, setLookupLoading] = useState(false)
-
-  // Guard so we only auto-open the paramId trail once — prevents the Back button
-  // from being overridden when trailJob resets to null after clicking Back.
-  const paramAutoOpened = useRef(false)
 
   const { data: jobsData, isLoading: jobsLoading } = useJobs({
     workflow_ids: [RFQ_WORKFLOW_ID],
@@ -417,15 +414,12 @@ export function EmailAuditTrail() {
 
   const paramId = paramJobId ? parseInt(paramJobId) : null
 
-  // Auto-open trail from URL param — runs once when the list is ready
-  if (paramId && !paramAutoOpened.current && jobs.length > 0) {
+  // Auto-open trail from URL param — triggers when param changes or list loads
+  useEffect(() => {
+    if (!paramId || jobsLoading) return
     const found = jobs.find((j) => j.id === paramId)
-    if (found) {
-      paramAutoOpened.current = true
-      // Use a microtask to avoid setting state during render
-      Promise.resolve().then(() => setTrailJob(found))
-    }
-  }
+    if (found) setTrailJob(found)
+  }, [paramId, jobsLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const trimmed = searchQuery.trim()
   const filteredJobs = trimmed ? jobs.filter((j) => jobMatchesQuery(j, trimmed)) : jobs
@@ -458,7 +452,11 @@ export function EmailAuditTrail() {
     return (
       <TrailView
         job={trailJob}
-        onBack={() => { setTrailJob(null); setLookupError('') }}
+        onBack={() => {
+          setTrailJob(null)
+          setLookupError('')
+          navigate('/audit')
+        }}
       />
     )
   }

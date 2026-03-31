@@ -128,7 +128,7 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
         })}
         {hasEndAction && (
           <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
-            Reject
+            Manual Resolution
           </Button>
         )}
       </div>
