@@ -56,8 +56,8 @@ let cachedAuth: AuthCache | null = readStoredAuth()
 let loginPromise: Promise<AuthCache> | null = null
 
 async function fetchAuth(): Promise<AuthCache> {
-  // n8n proxy has credentials hardcoded — no body needed from frontend
-  const res = await axios.post(LOGIN_URL)
+  // n8n proxy has credentials hardcoded — GET trigger, no body needed
+  const res = await axios.get(LOGIN_URL)
   const data = res.data?.data ?? res.data
 
   // Response shape: data.access_token.id  +  data.employee.id
