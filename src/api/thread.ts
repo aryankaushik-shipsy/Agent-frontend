@@ -31,3 +31,8 @@ export async function getEmailThread(threadID: string): Promise<ThreadResponse> 
   const res = await axios.post(THREAD_WEBHOOK, { threadID })
   return res.data
 }
+
+export async function getEmailMessage(messageId: string): Promise<ThreadResponse> {
+  const res = await axios.post(THREAD_WEBHOOK, { messageId })
+  return res.data
+}

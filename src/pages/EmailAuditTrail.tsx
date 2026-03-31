@@ -8,7 +8,7 @@ import { Button } from '../components/ui/Button'
 import { getCustomerName } from '../utils/status'
 import { formatRelativeTime } from '../utils/time'
 import { getJobById } from '../api/jobs'
-import { getEmailThread } from '../api/thread'
+import { getEmailThread, getEmailMessage } from '../api/thread'
 import { detectHitlType } from '../utils/hitl'
 import type { Job, JobDetail, Task } from '../types/job'
 import type { ThreadMessage } from '../api/thread'
@@ -143,6 +143,158 @@ function PipelineStepper({ job }: { job: JobDetail }) {
   )
 }
 
+// ─── Message card ─────────────────────────────────────────────────────────────
+
+function MessageCard({ msg, index, quoteEmailHtml }: {
+  msg: ThreadMessage
+  index: number
+  quoteEmailHtml: string | null
+}) {
+  const msgId  = msg.id ?? String(index)
+  const isOut  = (msg.labels ?? []).some((l) => l.id === 'SENT')
+  const isSentQuote = isOut && msg.payload?.mimeType === 'text/html'
+
+  const [showFull, setShowFull] = useState(false)
+  const [showQuote, setShowQuote] = useState(false)
+
+  // Fetch complete message only when user asks for it
+  const { data: fullMsgData, isLoading: fullMsgLoading } = useQuery({
+    queryKey: ['message', msgId],
+    queryFn: () => getEmailMessage(msgId),
+    enabled: showFull && !!msg.id,
+    staleTime: Infinity,
+  })
+
+  // Extract body from full message response — try common shapes
+  const fullBody: string | null = (() => {
+    if (!fullMsgData) return null
+    const d = fullMsgData as Record<string, unknown>
+    return (d.body ?? d.html ?? d.text ?? d.content ?? d.data ?? null) as string | null
+  })()
+
+  const from    = msg.From ?? ''
+  const to      = msg.To ?? ''
+  const subject = msg.Subject ?? ''
+  const snippet = msg.snippet ?? ''
+
+  let ts = ''
+  if (msg.internalDate) {
+    const d = new Date(parseInt(msg.internalDate))
+    ts = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  }
+
+  return (
+    <div style={{
+      border: '1px solid var(--gray-100)', borderRadius: 8, overflow: 'hidden',
+      borderLeft: `3px solid ${isOut ? '#2563eb' : '#d97706'}`,
+    }}>
+      {/* Header row */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+        padding: '10px 14px', background: 'var(--gray-50)', flexWrap: 'wrap', gap: 6,
+      }}>
+        <div>
+          {subject && <div style={{ fontWeight: 600, fontSize: 13 }}>{subject}</div>}
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
+            {from && <span><b>From:</b> {from}</span>}
+            {to   && <span style={{ marginLeft: 12 }}><b>To:</b> {to}</span>}
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{
+            fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
+            background: isOut ? '#eff6ff' : '#fffbeb',
+            color: isOut ? '#2563eb' : '#d97706',
+          }}>
+            {isOut ? 'OUTBOUND' : 'INBOUND'}
+          </span>
+          {ts && <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{ts}</span>}
+        </div>
+      </div>
+
+      {/* Snippet preview */}
+      {snippet && (
+        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--gray-100)' }}>
+          <p style={{ fontSize: 13, color: 'var(--gray-600)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
+            {snippet}
+          </p>
+        </div>
+      )}
+
+      {/* Action bar */}
+      <div style={{
+        padding: '8px 14px', borderTop: '1px solid var(--gray-100)',
+        background: 'var(--gray-50)', display: 'flex', gap: 8, flexWrap: 'wrap',
+      }}>
+        {/* View Full Message — available on all messages with an id */}
+        {msg.id && (
+          <button
+            onClick={() => setShowFull((v) => !v)}
+            disabled={fullMsgLoading}
+            style={{
+              background: 'none', border: '1px solid var(--gray-300)', borderRadius: 5,
+              color: 'var(--gray-600)', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+              padding: '4px 12px', display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            {fullMsgLoading
+              ? <><Spinner size="sm" /> Fetching…</>
+              : showFull ? 'Hide Full Message ↑' : 'View Full Message ↓'}
+          </button>
+        )}
+
+        {/* View Full Quote Email — only on the outbound HTML quote */}
+        {isSentQuote && quoteEmailHtml && (
+          <button
+            onClick={() => setShowQuote((v) => !v)}
+            style={{
+              background: 'none', border: '1px solid #2563eb', borderRadius: 5,
+              color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+              padding: '4px 12px',
+            }}
+          >
+            {showQuote ? 'Hide Quote Email ↑' : 'View Quote Email ↓'}
+          </button>
+        )}
+      </div>
+
+      {/* Full message body from webhook */}
+      {showFull && !fullMsgLoading && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid var(--gray-100)' }}>
+          {fullBody ? (
+            fullBody.trim().startsWith('<')
+              ? <iframe
+                  srcDoc={fullBody}
+                  sandbox="allow-same-origin"
+                  title={`full-msg-${index}`}
+                  style={{ width: '100%', border: 'none', minHeight: 200, maxHeight: 600 }}
+                />
+              : <pre style={{ fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', margin: 0, color: 'var(--gray-700)' }}>
+                  {fullBody}
+                </pre>
+          ) : (
+            <div style={{ fontSize: 13, color: 'var(--gray-400)', textAlign: 'center', padding: '12px 0' }}>
+              No message body in response.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded full HTML from Type 3 HITL payload */}
+      {isSentQuote && showQuote && quoteEmailHtml && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid var(--gray-100)' }}>
+          <iframe
+            srcDoc={quoteEmailHtml}
+            sandbox="allow-same-origin"
+            title={`quote-email-${index}`}
+            style={{ width: '100%', border: 'none', minHeight: 300, maxHeight: 600 }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Trail view ───────────────────────────────────────────────────────────────
 
 function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
@@ -179,8 +331,6 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
     const ar = type3.interrupt.details.ai_response
     return typeof ar === 'string' ? ar : null
   }, [jobDetail])
-
-  const [expandedMsgId, setExpandedMsgId] = useState<string | null>(null)
 
   const customer = getCustomerName(listJob)
 
@@ -258,91 +408,14 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {threadMessages.map((msg, i) => {
-            const from    = msg.From ?? ''
-            const to      = msg.To ?? ''
-            const subject = msg.Subject ?? ''
-            const snippet = msg.snippet ?? ''
-            const msgId   = msg.id ?? String(i)
-            const isOut   = (msg.labels ?? []).some((l) => l.id === 'SENT')
-            const isSentQuote = isOut && msg.payload?.mimeType === 'text/html'
-            const isExpanded  = expandedMsgId === msgId
-
-            // Parse internalDate (unix ms string → readable time)
-            let ts = ''
-            if (msg.internalDate) {
-              const d = new Date(parseInt(msg.internalDate))
-              ts = d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
-            }
-
-            return (
-              <div key={msgId} style={{
-                border: '1px solid var(--gray-100)', borderRadius: 8, overflow: 'hidden',
-                borderLeft: `3px solid ${isOut ? '#2563eb' : '#d97706'}`,
-              }}>
-                {/* Header row */}
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-                  padding: '10px 14px', background: 'var(--gray-50)', flexWrap: 'wrap', gap: 6,
-                }}>
-                  <div>
-                    {subject && <div style={{ fontWeight: 600, fontSize: 13 }}>{subject}</div>}
-                    <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 2 }}>
-                      {from && <span><b>From:</b> {from}</span>}
-                      {to   && <span style={{ marginLeft: 12 }}><b>To:</b> {to}</span>}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{
-                      fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 4,
-                      background: isOut ? '#eff6ff' : '#fffbeb',
-                      color: isOut ? '#2563eb' : '#d97706',
-                    }}>
-                      {isOut ? 'OUTBOUND' : 'INBOUND'}
-                    </span>
-                    {ts && <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>{ts}</span>}
-                  </div>
-                </div>
-
-                {/* Snippet preview */}
-                {snippet && (
-                  <div style={{ padding: '10px 14px', borderTop: '1px solid var(--gray-100)' }}>
-                    <p style={{ fontSize: 13, color: 'var(--gray-600)', margin: 0, lineHeight: 1.6, fontStyle: 'italic' }}>
-                      {snippet}
-                    </p>
-                  </div>
-                )}
-
-                {/* "View Full Quote Email" button — only on the outbound HTML quote email */}
-                {isSentQuote && quoteEmailHtml && (
-                  <div style={{ padding: '8px 14px', borderTop: '1px solid var(--gray-100)', background: 'var(--gray-50)' }}>
-                    <button
-                      onClick={() => setExpandedMsgId(isExpanded ? null : msgId)}
-                      style={{
-                        background: 'none', border: '1px solid #2563eb', borderRadius: 5,
-                        color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                        padding: '4px 12px',
-                      }}
-                    >
-                      {isExpanded ? 'Hide Full Email ↑' : 'View Full Quote Email ↓'}
-                    </button>
-                  </div>
-                )}
-
-                {/* Expanded full HTML from Type 3 HITL payload */}
-                {isSentQuote && isExpanded && quoteEmailHtml && (
-                  <div style={{ padding: '12px 14px', borderTop: '1px solid var(--gray-100)' }}>
-                    <iframe
-                      srcDoc={quoteEmailHtml}
-                      sandbox="allow-same-origin"
-                      title={`quote-email-${i}`}
-                      style={{ width: '100%', border: 'none', minHeight: 300, maxHeight: 600 }}
-                    />
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {threadMessages.map((msg, i) => (
+            <MessageCard
+              key={msg.id ?? String(i)}
+              msg={msg}
+              index={i}
+              quoteEmailHtml={quoteEmailHtml}
+            />
+          ))}
         </div>
       </div>
     </div>
