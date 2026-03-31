@@ -25,8 +25,9 @@ export interface ThreadResponse {
 }
 
 export async function getEmailThread(threadID: string): Promise<ThreadResponse> {
-  const res = await axios.post(THREAD_WEBHOOK, { threadID }, {
-    headers: { 'Content-Type': 'application/json' },
-  })
+  // No explicit headers — let axios set Content-Type automatically.
+  // An explicit Content-Type triggers a strict CORS preflight that the
+  // webhook server's OPTIONS handler cannot handle (returns 500).
+  const res = await axios.post(THREAD_WEBHOOK, { threadID })
   return res.data
 }

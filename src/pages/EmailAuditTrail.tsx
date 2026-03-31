@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
@@ -352,10 +352,14 @@ function JobAuditCard({ job, onGetTrail }: { job: Job; onGetTrail: (job: Job) =>
 export function EmailAuditTrail() {
   const { jobId: paramJobId } = useParams<{ jobId: string }>()
 
-  const [searchQuery, setSearchQuery]   = useState('')
-  const [trailJob,    setTrailJob]      = useState<Job | null>(null)
-  const [lookupError, setLookupError]   = useState('')
+  const [searchQuery, setSearchQuery]     = useState('')
+  const [trailJob,    setTrailJob]        = useState<Job | null>(null)
+  const [lookupError, setLookupError]     = useState('')
   const [lookupLoading, setLookupLoading] = useState(false)
+
+  // Guard so we only auto-open the paramId trail once — prevents the Back button
+  // from being overridden when trailJob resets to null after clicking Back.
+  const paramAutoOpened = useRef(false)
 
   const { data: jobsData, isLoading: jobsLoading } = useJobs({
     workflow_ids: [RFQ_WORKFLOW_ID],
@@ -365,9 +369,17 @@ export function EmailAuditTrail() {
   })
   const jobs = jobsData?.jobs ?? []
 
-  // If navigated with a jobId param, auto-open that trail once jobs load
-  // (we look it up in the list first; if absent, fall through to backend lookup)
   const paramId = paramJobId ? parseInt(paramJobId) : null
+
+  // Auto-open trail from URL param — runs once when the list is ready
+  if (paramId && !paramAutoOpened.current && jobs.length > 0) {
+    const found = jobs.find((j) => j.id === paramId)
+    if (found) {
+      paramAutoOpened.current = true
+      // Use a microtask to avoid setting state during render
+      Promise.resolve().then(() => setTrailJob(found))
+    }
+  }
 
   const trimmed = searchQuery.trim()
   const filteredJobs = trimmed ? jobs.filter((j) => jobMatchesQuery(j, trimmed)) : jobs
@@ -385,7 +397,6 @@ export function EmailAuditTrail() {
       if (detail.workflow_id && detail.workflow_id !== RFQ_WORKFLOW_ID) {
         setLookupError(`Job #${numericQuery} exists but is not an RFQ job.`)
       } else {
-        // Cast detail to Job-compatible shape for TrailView
         setTrailJob(detail as unknown as Job)
         setSearchQuery('')
       }
@@ -404,15 +415,6 @@ export function EmailAuditTrail() {
         onBack={() => { setTrailJob(null); setLookupError('') }}
       />
     )
-  }
-
-  // Handle ?jobId param when jobs loaded
-  if (paramId && !trailJob && jobs.length > 0) {
-    const found = jobs.find((j) => j.id === paramId)
-    if (found) {
-      // Defer to next render via state
-      setTimeout(() => setTrailJob(found), 0)
-    }
   }
 
   // ── List view ──
