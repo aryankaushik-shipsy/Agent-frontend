@@ -140,8 +140,10 @@ export function EmailPreview() {
     ? pending.interrupt.details.ai_response : ''
   const summary   = pending.interrupt.details.summary
   const customer  = getCustomerName(job)
-  // Show the actual sender email address in "To:" — fall back to customer name
+  // Show the actual sender email address in "To:"
+  // API stores it as info label "address" (from n8n) or "Sender Email" (legacy)
   const recipient =
+    getInfoField(job.info, 'address') ??
     getInfoField(job.info, 'Sender Email') ??
     job.input_json?.sender_email ??
     customer

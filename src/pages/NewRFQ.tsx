@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { useRunAgent } from '../hooks/useRunAgent'
+import axios from 'axios'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import { Button } from '../components/ui/Button'
+
+const SEND_EMAIL_WEBHOOK = 'https://wbdemo.shipsy.io/webhook/send-email'
 
 interface FormState {
   company_name: string
@@ -29,10 +31,10 @@ const EMPTY: FormState = {
 
 export function NewRFQ() {
   const navigate = useNavigate()
-  const { mutateAsync, isPending } = useRunAgent()
-  const [form, setForm] = useState<FormState>(EMPTY)
-  const [submitted, setSubmitted] = useState<{ jobId: number } | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [form, setForm]           = useState<FormState>(EMPTY)
+  const [isPending, setIsPending] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [error, setError]         = useState<string | null>(null)
 
   function set(key: keyof FormState) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -42,49 +44,43 @@ export function NewRFQ() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setIsPending(true)
     try {
-      // Generate unique IDs matching the format expected by the agent API
-      const hexId = (len: number) =>
-        Array.from(crypto.getRandomValues(new Uint8Array(Math.ceil(len / 2))))
-          .map(b => b.toString(16).padStart(2, '0'))
-          .join('')
-          .slice(0, len)
-
-      const threadID  = hexId(14)
-      const messageID = hexId(16)
-      const objectId  = hexId(13)
-
       // Build natural-language message the agent will parse
-      const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm}`
-      const messageParts = [
+      const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm} cm`
+      const message = [
         `${form.origin} to ${form.destination} on ${form.date}`,
-        `${form.weight_kg}kg`,
-        `${dims} ${form.number_of_boxes} piece(s) by air`,
-        form.commodity  ? `commodity: ${form.commodity}`     : '',
-        form.company_name ? `company: ${form.company_name}` : '',
-        form.contact_name ? `contact: ${form.contact_name}` : '',
+        `${form.weight_kg} kg`,
+        `${dims}, ${form.number_of_boxes} piece(s) by air`,
+        form.commodity    ? `commodity: ${form.commodity}`   : '',
+        form.company_name ? `company: ${form.company_name}`  : '',
+        form.contact_name ? `contact: ${form.contact_name}`  : '',
         form.notes        ? `notes: ${form.notes}`           : '',
-      ].filter(Boolean)
+      ].filter(Boolean).join(', ')
 
-      const res = await mutateAsync({
+      await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
-          threadID,
+          type:      'Platform',
+          name:      form.contact_name || form.company_name,
+          threadID:  '',
           subject:   'rfq',
-          message:   messageParts.join(', '),
+          message,
           sender:    form.sender_email,
-          messageID,
-          data:      `${form.origin} to ${form.destination}\n`,
+          messageID: '',
+          data:      message,
         },
-        objectId,
+        objectId:   '',
         objectType: 'Email',
         hubCode:    '',
         workflowId: String(RFQ_WORKFLOW_ID),
         source:     'n8n',
         ticketId:   '',
       })
-      setSubmitted({ jobId: res.job_id })
+      setSubmitted(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
+    } finally {
+      setIsPending(false)
     }
   }
 
@@ -96,18 +92,15 @@ export function NewRFQ() {
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
           </svg>
           <div className="banner-content">
-            <div className="banner-title">RFQ #{submitted.jobId} submitted</div>
-            <div>Agent is processing. Typically completes in ~4 minutes.</div>
+            <div className="banner-title">RFQ submitted successfully</div>
+            <div>Agent is processing your request. It will appear in the pipeline shortly.</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <Link
-            to={`/pipeline?highlight=${submitted.jobId}`}
-            className="btn btn-primary"
-          >
-            View in Quote Pipeline
+          <Link to="/pipeline" className="btn btn-primary">
+            View Quote Pipeline
           </Link>
-          <Button variant="ghost" onClick={() => { setSubmitted(null); setForm(EMPTY) }}>
+          <Button variant="ghost" onClick={() => { setSubmitted(false); setForm(EMPTY) }}>
             Submit Another
           </Button>
         </div>
