@@ -25,13 +25,7 @@ export interface ThreadResponse {
 }
 
 export async function getEmailThread(threadID: string): Promise<ThreadResponse> {
-  // Send as text/plain so the browser treats this as a CORS "simple request"
-  // and skips the OPTIONS preflight entirely.  application/json triggers a
-  // preflight which the webhook server's OPTIONS handler cannot handle (500).
-  const res = await axios.post(
-    THREAD_WEBHOOK,
-    JSON.stringify({ threadID }),
-    { headers: { 'Content-Type': 'text/plain' } },
-  )
+  // The n8n webhook is configured as GET — send threadID as a query param.
+  const res = await axios.get(THREAD_WEBHOOK, { params: { threadID } })
   return res.data
 }
