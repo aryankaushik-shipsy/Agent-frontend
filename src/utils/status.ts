@@ -44,6 +44,9 @@ export function deriveJobStatus(
              (t.status === 'success' || t.status === 'completed')
     )
     if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
+    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
+    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
@@ -68,6 +71,9 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
              (t.status === 'success' || t.status === 'completed')
     )
     if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
+    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
+    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
