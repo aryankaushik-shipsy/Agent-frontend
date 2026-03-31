@@ -19,8 +19,15 @@ const QUOTE_SENT_TASK_KEYS = ['carrier_1', 'carrier_2']
  * The job will stay interrupted until the customer responds, so we need this
  * separate check to avoid labelling it as a blocked/error state.
  */
-export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean {
+/** Returns true when the job was submitted via the platform form (not an inbound email). */
+export function isPlatformJob(job: { input_json?: { type?: string } | null } | null | undefined): boolean {
+  return job?.input_json?.type === 'Platform'
+}
+
+export function isAwaitingAck(job: { status: string; tasks?: Task[]; input_json?: { type?: string } | null }): boolean {
   if (job.status !== 'interrupted') return false
+  // Platform-initiated jobs have no customer email thread — no ack stage
+  if (isPlatformJob(job)) return false
   return (job.tasks ?? []).some(
     (t) =>
       QUOTE_SENT_TASK_KEYS.some((key) => t.title?.toLowerCase().includes(key)) &&
@@ -59,10 +66,11 @@ export function deriveJobStatus(
 
 export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): StatusResult {
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (job.status === 'success') return { label: 'Quote Accepted', variant: 'green' }
+  if (job.status === 'success') return { label: isPlatformJob(job) ? 'Quote Sent' : 'Quote Accepted', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
   // Must check awaiting-ack BEFORE the generic interrupted fallback
+  // Platform jobs skip this — no email thread to await acknowledgement from
   if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
   if (job.status === 'interrupted') {
     // Interrupted before get_rate completed → agent is asking for clarification

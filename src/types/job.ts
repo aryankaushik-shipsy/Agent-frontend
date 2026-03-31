@@ -20,6 +20,7 @@ export interface Job {
   info?: InfoField[]
   // raw form submission data
   input_json?: {
+    type?: string          // 'Platform' | 'Inbound Email'
     sender_email?: string
     company_name?: string
     contact_name?: string

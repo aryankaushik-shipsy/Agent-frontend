@@ -5,7 +5,7 @@ import { useJobs } from '../hooks/useJobs'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import { Spinner } from '../components/ui/Spinner'
 import { Button } from '../components/ui/Button'
-import { getCustomerName } from '../utils/status'
+import { getCustomerName, isPlatformJob } from '../utils/status'
 import { formatRelativeTime } from '../utils/time'
 import { getJobById } from '../api/jobs'
 import { getEmailThread } from '../api/thread'
@@ -436,8 +436,10 @@ export function EmailAuditTrail() {
       .finally(() => setLookupLoading(false))
   }, [paramId, jobsLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Exclude platform-initiated jobs — they have no email thread to audit
+  const emailJobs = jobs.filter((j) => !isPlatformJob(j))
   const trimmed = searchQuery.trim()
-  const filteredJobs = trimmed ? jobs.filter((j) => jobMatchesQuery(j, trimmed)) : jobs
+  const filteredJobs = trimmed ? emailJobs.filter((j) => jobMatchesQuery(j, trimmed)) : emailJobs
 
   const numericQuery = /^\d+$/.test(trimmed) ? parseInt(trimmed) : null
   const inLoadedList = numericQuery ? jobs.some((j) => j.id === numericQuery) : false

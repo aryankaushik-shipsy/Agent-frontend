@@ -3,7 +3,7 @@ import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { Button } from '../ui/Button'
 import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { derivePipelineStage, getCustomerName, getShipmentRow } from '../../utils/status'
+import { derivePipelineStage, getCustomerName, getShipmentRow, isPlatformJob } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { JobDetail } from '../../types/job'
@@ -127,16 +127,16 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                     Preview Email
                   </Button>
                 )}
-                {job.status === 'success' && (
+                {job.status === 'success' && !isPlatformJob(job) && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    View
+                    View Trail
                   </Button>
                 )}
                 {(job.status === 'running' || job.status === 'queued') && !hitlType && (
                   <Spinner size="sm" />
                 )}
-                {/* Fallback for interrupted / failed / awaiting-ack — always show audit trail link */}
-                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
+                {/* Fallback for interrupted / failed / awaiting-ack — show trail only for email jobs */}
+                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && !isPlatformJob(job) && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Trail
                   </Button>
