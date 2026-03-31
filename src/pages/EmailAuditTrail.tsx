@@ -166,7 +166,7 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
     queryKey: ['thread', threadId],
     queryFn: () => getEmailThread(threadId!),
     enabled: !!threadId,
-    staleTime: 60_000,
+    staleTime: 0,   // always refetch — thread updates after send_email action
     retry: 1,
   })
   const threadMessages: ThreadMessage[] = threadData?.messages ?? []

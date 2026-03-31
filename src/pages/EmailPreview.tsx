@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { getPendingIntervention, detectHitlType } from '../utils/hitl'
-import { getCustomerName } from '../utils/status'
+import { getCustomerName, getInfoField } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
@@ -15,6 +16,7 @@ export function EmailPreview() {
   const { jobId } = useParams<{ jobId: string }>()
   const navigate = useNavigate()
   const { mutateAsync, isPending } = useHitlAction()
+  const queryClient = useQueryClient()
 
   const [job,       setJob]       = useState<JobDetail | null>(null)
   const [loadError, setLoadError] = useState(false)
@@ -136,14 +138,22 @@ export function EmailPreview() {
 
   const emailHtml = typeof pending.interrupt.details.ai_response === 'string'
     ? pending.interrupt.details.ai_response : ''
-  const summary = pending.interrupt.details.summary
-  const recipient = getCustomerName(job)
-  const customer = recipient
+  const summary   = pending.interrupt.details.summary
+  const customer  = getCustomerName(job)
+  // Show the actual sender email address in "To:" — fall back to customer name
+  const recipient =
+    getInfoField(job.info, 'Sender Email') ??
+    job.input_json?.sender_email ??
+    customer
 
   async function handleAction(action: string) {
     if (!pending) return
     await mutateAsync({ id: pending.id, action })
     if (action === 'send_email') {
+      // Bust the thread cache so the audit trail refetches immediately
+      if (job!.ticket_id) {
+        queryClient.invalidateQueries({ queryKey: ['thread', job!.ticket_id] })
+      }
       navigate(`/audit/${job!.id}`)
     } else {
       navigate('/pipeline')
