@@ -102,8 +102,13 @@ export function Dashboard() {
   // Safe now that we're date-scoped — only today's jobs (~10 max)
   const { data: recentDetails, isLoading: detailsLoading } = useJobDetails(recentJobs.map(j => j.id))
   const detailMap = new Map(recentDetails.map(d => [d.id, d]))
-  // Prefer detail (has input_json) over list-level job; fall back while loading
-  const recentJobsWithDetails = recentJobs.map(j => detailMap.get(j.id) ?? j)
+  // Merge detail onto list job — detail has input_json/tasks/interventions,
+  // list job has created_at which the detail endpoint may omit.
+  const recentJobsWithDetails = recentJobs.map(j => {
+    const detail = detailMap.get(j.id)
+    if (!detail) return j
+    return { ...j, ...detail, created_at: detail.created_at ?? j.created_at }
+  })
 
   return (
     <div>
