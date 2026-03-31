@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueries, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { getJobs } from '../api/jobs'
 import { useJobDetails } from '../hooks/useJobDetails'
@@ -99,10 +99,27 @@ export function QuotePipeline() {
       queryKey: ['jobs', allInterventionFilter],
       queryFn: () => getJobs(allInterventionFilter),
       enabled: activeTab === 'all',
-      staleTime: 30_000,
+      staleTime: 15_000,
+      refetchInterval: 15_000,
+      placeholderData: keepPreviousData,
       refetchOnWindowFocus: false,
     }],
   })[0]
+
+  // When the regular query refetches and a job disappears (transitioning into
+  // intervention state), immediately refetch the intervention query so the two
+  // stay in sync and the job doesn't vanish from the table.
+  const prevRegularIdsRef = useRef<number[]>([])
+  useEffect(() => {
+    if (activeTab !== 'all') return
+    const currentIds = new Set((jobsData?.jobs ?? []).map((j) => j.id))
+    const disappeared = prevRegularIdsRef.current.filter((id) => !currentIds.has(id))
+    if (disappeared.length > 0) {
+      queryClient.invalidateQueries({ queryKey: ['jobs', allInterventionFilter] })
+    }
+    prevRegularIdsRef.current = (jobsData?.jobs ?? []).map((j) => j.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobsData])
 
   // Fetch counts for specific tabs only — "All" is computed as their sum
   const countResults = useQueries({
