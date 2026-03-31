@@ -55,18 +55,23 @@ let cachedToken: string | null = readStoredToken()
 let loginPromise: Promise<string> | null = null
 
 async function fetchAccessToken(): Promise<string> {
-  // Use URLSearchParams (application/x-www-form-urlencoded) so the browser treats
-  // this as a "simple request" — no CORS preflight OPTIONS is sent.
-  // JSON POST + custom headers would trigger a preflight which demodashboardapi.shipsy.in
-  // rejects with 401 for non-shipsy.io origins (onrender.com is not whitelisted).
-  // Org identity fields are passed in the body instead of as custom headers.
-  const body = new URLSearchParams({
-    username: USERNAME,
-    password: PASSWORD,
-    organisation_pretty_name: ORG_PRETTY_NAME,
-    organisation_url: ORG_URL,
-  })
-  const res = await axios.post(LOGIN_URL, body)
+  // Replicates the working curl exactly:
+  //   POST application/json body  { username, password }
+  //   Headers: organisation-pretty-name, organisation-url
+  // NOTE: this triggers a CORS preflight. It will only work when the frontend
+  // is served from an origin whitelisted by demodashboardapi.shipsy.in
+  // (e.g. vendorflowdemo.demo.shipsy.io). Add that as a custom domain in Render.
+  const res = await axios.post(
+    LOGIN_URL,
+    { username: USERNAME, password: PASSWORD },
+    {
+      headers: {
+        'content-type': 'application/json;charset=UTF-8',
+        'organisation-pretty-name': ORG_PRETTY_NAME,
+        'organisation-url': ORG_URL,
+      },
+    }
+  )
   const token =
     res.data?.data?.access_token ??
     res.data?.access_token ??
