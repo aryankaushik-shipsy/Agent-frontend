@@ -6,15 +6,16 @@ const API_BASE = import.meta.env.PROD
   ? (import.meta.env.VITE_API_BASE_URL as string)
   : '/'
 
-const ORG_ID       = import.meta.env.VITE_ORGANISATION_ID as string
-const INTERNAL_KEY = import.meta.env.VITE_INTERNAL_API_KEY as string
-const USER_ID      = import.meta.env.VITE_USER_ID as string
-const USERNAME     = import.meta.env.VITE_USERNAME as string
-const PASSWORD     = import.meta.env.VITE_PASSWORD as string
+const ORG_ID           = import.meta.env.VITE_ORGANISATION_ID as string
+const ORG_PRETTY_NAME  = import.meta.env.VITE_ORG_PRETTY_NAME as string   // e.g. "shipsyflamingo"
+const ORG_URL          = import.meta.env.VITE_ORG_URL as string            // e.g. "shipsyflamingo.demo.shipsy.io"
+const INTERNAL_KEY     = import.meta.env.VITE_INTERNAL_API_KEY as string
+const USER_ID          = import.meta.env.VITE_USER_ID as string
+const USERNAME         = import.meta.env.VITE_USERNAME as string
+const PASSWORD         = import.meta.env.VITE_PASSWORD as string
 
-// Login goes through the same API base URL as all other calls (CORS is handled there).
-// demodashboardapi.shipsy.in rejects OPTIONS preflight from external origins.
-const LOGIN_URL = `${import.meta.env.VITE_API_BASE_URL as string}/api/dashboard/login`
+// Login endpoint — always on the canonical dashboard API host
+const LOGIN_URL = 'https://demodashboardapi.shipsy.in/api/dashboard/login'
 
 // Token is stored in localStorage so it survives page reloads.
 // We treat it as expired after TOKEN_TTL_MS to guarantee a fresh one well within
@@ -54,13 +55,18 @@ let cachedToken: string | null = readStoredToken()
 let loginPromise: Promise<string> | null = null
 
 async function fetchAccessToken(): Promise<string> {
-  const res = await axios.post(
-    LOGIN_URL,
-    { username: USERNAME, password: PASSWORD },
-    // No custom headers here — custom headers trigger a CORS OPTIONS preflight
-    // which the API server rejects. content-type is set automatically by axios.
-    { headers: { 'content-type': 'application/json' } }
-  )
+  // Use URLSearchParams (application/x-www-form-urlencoded) so the browser treats
+  // this as a "simple request" — no CORS preflight OPTIONS is sent.
+  // JSON POST + custom headers would trigger a preflight which demodashboardapi.shipsy.in
+  // rejects with 401 for non-shipsy.io origins (onrender.com is not whitelisted).
+  // Org identity fields are passed in the body instead of as custom headers.
+  const body = new URLSearchParams({
+    username: USERNAME,
+    password: PASSWORD,
+    organisation_pretty_name: ORG_PRETTY_NAME,
+    organisation_url: ORG_URL,
+  })
+  const res = await axios.post(LOGIN_URL, body)
   const token =
     res.data?.data?.access_token ??
     res.data?.access_token ??
