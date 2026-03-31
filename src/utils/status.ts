@@ -33,10 +33,8 @@ function isEmailSent(tasks: Task[] | undefined): boolean {
   )
 }
 
-export function isAwaitingAck(job: { status: string; tasks?: Task[]; input_json?: { type?: string } | null }): boolean {
+export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean {
   if (job.status !== 'interrupted') return false
-  // Platform-initiated jobs have no customer email thread — no ack stage
-  if (isPlatformJob(job)) return false
   return isEmailSent(job.tasks)
 }
 
@@ -71,14 +69,10 @@ export function deriveJobStatus(
 
 export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): StatusResult {
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (job.status === 'success') return { label: isPlatformJob(job) ? 'Quote Sent' : 'Quote Accepted', variant: 'green' }
+  if (job.status === 'success') return { label: 'Quote Accepted', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
   if (job.status === 'interrupted') {
-    // Platform job: once email is sent the job is effectively done
-    if (isPlatformJob(job) && isEmailSent(job.tasks))
-      return { label: 'Quote Sent', variant: 'green' }
-    // Email job: awaiting customer acknowledgement
     if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     const ratesDone = (job.tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&

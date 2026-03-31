@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { getPendingIntervention, detectHitlType } from '../utils/hitl'
-import { getCustomerName, getInfoField } from '../utils/status'
+import { getCustomerName, getInfoField, isPlatformJob } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
@@ -139,9 +139,9 @@ export function EmailPreview() {
   const emailHtml = typeof pending.interrupt.details.ai_response === 'string'
     ? pending.interrupt.details.ai_response : ''
   const summary   = pending.interrupt.details.summary
+  const platform  = isPlatformJob(job)
   const customer  = getCustomerName(job)
-  // Show the actual sender email address in "To:"
-  // API stores it as info label "address" (from n8n) or "Sender Email" (legacy)
+  // Show actual sender email in "To:" (stored as info label "address" by n8n)
   const recipient =
     getInfoField(job.info, 'address') ??
     getInfoField(job.info, 'Sender Email') ??
@@ -169,16 +169,33 @@ export function EmailPreview() {
           <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" />
         </svg>
         <div className="banner-content">
-          <div className="banner-title">#RFQ-{job.id} · {customer}</div>
+          <div className="banner-title">
+            #RFQ-{job.id}{!platform && customer !== '—' ? ` · ${customer}` : ''}
+          </div>
           {summary && <div style={{ marginTop: 2 }}>{summary}</div>}
         </div>
       </div>
 
       <div className="form-card" style={{ marginBottom: 16 }}>
-        <div className="recipient-row">
-          <span className="recipient-label">To:</span>
-          <span className="recipient-value">{recipient}</span>
-        </div>
+        {platform ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12,
+            padding: '8px 12px', background: 'var(--gray-50)',
+            borderRadius: 6, border: '1px solid var(--gray-100)',
+          }}>
+            <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 15, height: 15, color: '#6366f1', flexShrink: 0 }}>
+              <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+            </svg>
+            <span style={{ fontSize: 13, color: 'var(--gray-600)', fontWeight: 500 }}>
+              Platform initiated — sent directly by the agent
+            </span>
+          </div>
+        ) : (
+          <div className="recipient-row">
+            <span className="recipient-label">To:</span>
+            <span className="recipient-value">{recipient}</span>
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span className="ai-tag">

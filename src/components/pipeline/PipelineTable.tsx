@@ -3,7 +3,7 @@ import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { Button } from '../ui/Button'
 import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { derivePipelineStage, getCustomerName, getShipmentRow, isPlatformJob } from '../../utils/status'
+import { derivePipelineStage, getCustomerName, getShipmentRow } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { JobDetail } from '../../types/job'
@@ -127,7 +127,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                     Preview Email
                   </Button>
                 )}
-                {job.status === 'success' && !isPlatformJob(job) && (
+                {job.status === 'success' && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Trail
                   </Button>
@@ -135,8 +135,8 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                 {(job.status === 'running' || job.status === 'queued') && !hitlType && (
                   <Spinner size="sm" />
                 )}
-                {/* Fallback for interrupted / failed / awaiting-ack — show trail only for email jobs */}
-                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && !isPlatformJob(job) && (
+                {/* Fallback for interrupted / failed / awaiting-ack */}
+                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Trail
                   </Button>
