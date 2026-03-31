@@ -25,7 +25,10 @@ export interface ThreadResponse {
 }
 
 export async function getEmailThread(threadID: string): Promise<ThreadResponse> {
-  // The n8n webhook is configured as GET — send threadID as a query param.
-  const res = await axios.get(THREAD_WEBHOOK, { params: { threadID } })
+  const res = await axios.post(
+    THREAD_WEBHOOK,
+    JSON.stringify({ threadID }),
+    { headers: { 'Content-Type': 'text/plain' } },
+  )
   return res.data
 }
