@@ -414,11 +414,26 @@ export function EmailAuditTrail() {
 
   const paramId = paramJobId ? parseInt(paramJobId) : null
 
-  // Auto-open trail from URL param — triggers when param changes or list loads
+  // Auto-open trail from URL param — triggers when param changes or list loads.
+  // If the job isn't in the loaded 50, fall back to a direct backend fetch.
   useEffect(() => {
     if (!paramId || jobsLoading) return
     const found = jobs.find((j) => j.id === paramId)
-    if (found) setTrailJob(found)
+    if (found) {
+      setTrailJob(found)
+      return
+    }
+    // Not in list — fetch directly
+    setLookupLoading(true)
+    setLookupError('')
+    getJobById(paramId)
+      .then((detail) => {
+        setTrailJob(detail as unknown as Job)
+      })
+      .catch(() => {
+        setLookupError(`Job #${paramId} not found.`)
+      })
+      .finally(() => setLookupLoading(false))
   }, [paramId, jobsLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const trimmed = searchQuery.trim()
