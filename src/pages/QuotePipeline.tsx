@@ -21,10 +21,10 @@ function getFilter(tab: PipelineTab, page: number, dateRange: DateRange): JobFil
     created_at_to: dateRange.to,
   }
   switch (tab) {
-    case 'processing': return { ...base, statuses: ['queued', 'running'], active_interventions: false }
+    case 'processing': return { ...base, statuses: ['queued', 'running', 'interrupted'], active_interventions: false }
     case 'pending':    return { ...base, active_interventions: true }
     case 'sent':       return { ...base, statuses: ['success'] }
-    case 'failed':     return { ...base, statuses: ['failed', 'interrupted'] }
+    case 'failed':     return { ...base, statuses: ['failed'] }
     default:           return base
   }
 }
@@ -37,10 +37,10 @@ function getCountFilter(tab: PipelineTab, dateRange: DateRange): JobFilter {
     created_at_to: dateRange.to,
   }
   switch (tab) {
-    case 'processing': return { ...base, statuses: ['queued', 'running'], active_interventions: false }
+    case 'processing': return { ...base, statuses: ['queued', 'running', 'interrupted'], active_interventions: false }
     case 'pending':    return { ...base, active_interventions: true }
     case 'sent':       return { ...base, statuses: ['success'] }
-    case 'failed':     return { ...base, statuses: ['failed', 'interrupted'] }
+    case 'failed':     return { ...base, statuses: ['failed'] }
     default:           return base
   }
 }

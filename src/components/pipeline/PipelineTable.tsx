@@ -135,6 +135,12 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                 {(job.status === 'running' || job.status === 'queued') && !hitlType && (
                   <Spinner size="sm" />
                 )}
+                {/* Fallback for interrupted / failed / awaiting-ack — always show audit trail link */}
+                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
+                  <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    View Trail
+                  </Button>
+                )}
               </td>
             </tr>
           ))}
