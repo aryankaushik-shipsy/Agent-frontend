@@ -33,7 +33,7 @@ export function NewRFQ() {
   const navigate = useNavigate()
   const [form, setForm]           = useState<FormState>(EMPTY)
   const [isPending, setIsPending] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+  const [submitted, setSubmitted] = useState<{ jobId: number } | null>(null)
   const [error, setError]         = useState<string | null>(null)
 
   function set(key: keyof FormState) {
@@ -58,7 +58,7 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      await axios.post(SEND_EMAIL_WEBHOOK, {
+      const res = await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.contact_name || form.company_name,
@@ -76,7 +76,9 @@ export function NewRFQ() {
         source:     'n8n',
         ticketId:   '',
       })
-      setSubmitted(true)
+      // Response is an array: [{ job_id, status, ... }]
+      const payload = Array.isArray(res.data) ? res.data[0] : res.data
+      setSubmitted({ jobId: payload?.job_id ?? null })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
     } finally {
@@ -92,15 +94,40 @@ export function NewRFQ() {
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
           </svg>
           <div className="banner-content">
-            <div className="banner-title">RFQ submitted successfully</div>
-            <div>Agent is processing your request. It will appear in the pipeline shortly.</div>
+            <div className="banner-title">
+              RFQ {submitted.jobId ? `#${submitted.jobId}` : ''} queued successfully
+            </div>
+            <div>Agent is processing your request. Typically completes in ~4 minutes.</div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-          <Link to="/pipeline" className="btn btn-primary">
-            View Quote Pipeline
+
+        {submitted.jobId && (
+          <div style={{
+            marginTop: 16, padding: '14px 18px', background: 'white',
+            borderRadius: 8, border: '1px solid var(--gray-100)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--gray-400)', marginBottom: 4 }}>Job ID</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16 }}>
+                #RFQ-{submitted.jobId}
+              </div>
+            </div>
+            <Link
+              to={`/pipeline?highlight=${submitted.jobId}`}
+              className="btn btn-primary"
+              style={{ fontSize: 13 }}
+            >
+              Track in Pipeline →
+            </Link>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+          <Link to="/pipeline" className="btn btn-ghost">
+            View All Jobs
           </Link>
-          <Button variant="ghost" onClick={() => { setSubmitted(false); setForm(EMPTY) }}>
+          <Button variant="ghost" onClick={() => { setSubmitted(null); setForm(EMPTY) }}>
             Submit Another
           </Button>
         </div>
