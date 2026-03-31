@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime, formatDate } from '../../utils/time'
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function Type2Card({ job, intervention, payload, onAction, loading }: Props) {
+  const navigate = useNavigate()
   // Use full carriers from task if available (have markup/subtotal data)
   const taskCarriers = getCarriersFromTask(job)
   const carriers = taskCarriers.length > 0 ? taskCarriers : payload.carriers
@@ -49,8 +51,20 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
             {customer} · {payload.origin ?? '—'} → {payload.destination ?? '—'} · {payload.weight_kg ?? '—'} kg
           </div>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--gray-500)' }}>
-          {formatRelativeTime(intervention.created_at ?? job.created_at)}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+            {formatRelativeTime(intervention.created_at ?? job.created_at)}
+          </span>
+          <button
+            onClick={() => navigate(`/pipeline/${job.id}/quote`)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
+              textDecoration: 'underline', textUnderlineOffset: 2,
+            }}
+          >
+            View Full Quote →
+          </button>
         </div>
       </div>
 
