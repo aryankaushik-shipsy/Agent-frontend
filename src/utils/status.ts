@@ -24,15 +24,20 @@ export function isPlatformJob(job: { input_json?: { type?: string } | null } | n
   return job?.input_json?.type === 'Platform'
 }
 
-export function isAwaitingAck(job: { status: string; tasks?: Task[]; input_json?: { type?: string } | null }): boolean {
-  if (job.status !== 'interrupted') return false
-  // Platform-initiated jobs have no customer email thread — no ack stage
-  if (isPlatformJob(job)) return false
-  return (job.tasks ?? []).some(
+/** Returns true when the send-email task has completed, regardless of job type. */
+function isEmailSent(tasks: Task[] | undefined): boolean {
+  return (tasks ?? []).some(
     (t) =>
       QUOTE_SENT_TASK_KEYS.some((key) => t.title?.toLowerCase().includes(key)) &&
       (t.status === 'success' || t.status === 'completed')
   )
+}
+
+export function isAwaitingAck(job: { status: string; tasks?: Task[]; input_json?: { type?: string } | null }): boolean {
+  if (job.status !== 'interrupted') return false
+  // Platform-initiated jobs have no customer email thread — no ack stage
+  if (isPlatformJob(job)) return false
+  return isEmailSent(job.tasks)
 }
 
 export function deriveJobStatus(
@@ -69,11 +74,12 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
   if (job.status === 'success') return { label: isPlatformJob(job) ? 'Quote Sent' : 'Quote Accepted', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
-  // Must check awaiting-ack BEFORE the generic interrupted fallback
-  // Platform jobs skip this — no email thread to await acknowledgement from
-  if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
   if (job.status === 'interrupted') {
-    // Interrupted before get_rate completed → agent is asking for clarification
+    // Platform job: once email is sent the job is effectively done
+    if (isPlatformJob(job) && isEmailSent(job.tasks))
+      return { label: 'Quote Sent', variant: 'green' }
+    // Email job: awaiting customer acknowledgement
+    if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     const ratesDone = (job.tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&
              (t.status === 'success' || t.status === 'completed')
