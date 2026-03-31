@@ -1,29 +1,132 @@
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { getPendingIntervention, detectHitlType } from '../utils/hitl'
 import { getCustomerName } from '../utils/status'
+import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
+import type { JobDetail } from '../types/job'
+
+const POLL_INTERVAL_MS = 5_000   // poll every 5 s
+const MAX_WAIT_MS      = 60_000  // give up after 60 s
 
 export function EmailPreview() {
   const { jobId } = useParams<{ jobId: string }>()
   const navigate = useNavigate()
-  const { data: job, isLoading } = useJob(jobId ? parseInt(jobId) : null)
   const { mutateAsync, isPending } = useHitlAction()
 
-  if (isLoading) {
-    return <div style={{ padding: 40, textAlign: 'center' }}><Spinner size="lg" /></div>
+  const [job,       setJob]       = useState<JobDetail | null>(null)
+  const [loadError, setLoadError] = useState(false)
+  const [timedOut,  setTimedOut]  = useState(false)
+  const [elapsed,   setElapsed]   = useState(0)   // seconds shown in UI
+
+  const startedAt  = useRef(Date.now())
+  const pollRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tickRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const mounted    = useRef(true)
+
+  useEffect(() => {
+    mounted.current  = true
+    startedAt.current = Date.now()
+    setElapsed(0)
+
+    // Tick every second so the "Xs…" counter updates
+    tickRef.current = setInterval(() => {
+      if (mounted.current) setElapsed(Math.floor((Date.now() - startedAt.current) / 1000))
+    }, 1000)
+
+    async function attempt() {
+      if (!mounted.current) return
+      const jobIdNum = jobId ? parseInt(jobId) : null
+      if (!jobIdNum) { setLoadError(true); return }
+
+      try {
+        const data = await getJobById(jobIdNum)
+        if (!mounted.current) return
+
+        const pending = getPendingIntervention(data.interventions)
+        const hitlType = pending ? detectHitlType(pending) : null
+        const hasEmailAction = pending?.interrupt.actions.some((a) => a.id === 'send_email') ?? false
+        const ready = pending && (hitlType === 3 || hasEmailAction)
+
+        if (ready) {
+          if (tickRef.current) clearInterval(tickRef.current)
+          setJob(data)
+          return
+        }
+
+        // Not ready — exceeded max wait?
+        if (Date.now() - startedAt.current >= MAX_WAIT_MS) {
+          if (tickRef.current) clearInterval(tickRef.current)
+          setJob(data)
+          setTimedOut(true)
+          return
+        }
+
+        pollRef.current = setTimeout(attempt, POLL_INTERVAL_MS)
+      } catch {
+        if (!mounted.current) return
+        if (Date.now() - startedAt.current >= MAX_WAIT_MS) {
+          if (tickRef.current) clearInterval(tickRef.current)
+          setLoadError(true)
+          return
+        }
+        pollRef.current = setTimeout(attempt, POLL_INTERVAL_MS)
+      }
+    }
+
+    attempt()
+
+    return () => {
+      mounted.current = false
+      if (pollRef.current) clearTimeout(pollRef.current)
+      if (tickRef.current) clearInterval(tickRef.current)
+    }
+  }, [jobId])
+
+  // Still waiting — show persistent loading screen
+  if (!job && !loadError) {
+    const pct = Math.min(100, Math.round((elapsed / 45) * 100)) // fill bar over ~45 s
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', minHeight: 420, gap: 20, padding: '0 24px',
+      }}>
+        <Spinner size="lg" />
+        <div style={{ fontWeight: 700, fontSize: 18 }}>Generating email preview…</div>
+        <div style={{ color: 'var(--gray-500)', fontSize: 13, textAlign: 'center', maxWidth: 360 }}>
+          The agent is preparing your quote email. This usually takes 20–30 seconds.
+        </div>
+
+        {/* Progress bar */}
+        <div style={{ width: 320, height: 6, background: 'var(--gray-100)', borderRadius: 99, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%', width: `${pct}%`, background: '#2563eb',
+            borderRadius: 99, transition: 'width 1s linear',
+          }} />
+        </div>
+
+        <div style={{ fontSize: 12, color: 'var(--gray-400)' }}>
+          {elapsed}s elapsed · checking every 5s
+        </div>
+      </div>
+    )
   }
-  if (!job) {
+
+
+
+  if (loadError) {
     return <div style={{ padding: 40 }}>Job not found.</div>
   }
+
+  if (!job) return null
 
   const pending = getPendingIntervention(job.interventions)
   const hitlType = pending ? detectHitlType(pending) : null
   const hasEmailAction = pending?.interrupt.actions.some((a) => a.id === 'send_email') ?? false
 
-  if (!pending || (hitlType !== 3 && !hasEmailAction)) {
+  if (timedOut || !pending || (hitlType !== 3 && !hasEmailAction)) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Email Preview stage.</div>
