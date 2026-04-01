@@ -9,6 +9,7 @@ import { RecentRFQsTable } from '../components/dashboard/RecentRFQsTable'
 import { AIPerformancePanel } from '../components/dashboard/AIPerformancePanel'
 import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
 import { SearchBox } from '../components/pipeline/SearchBox'
+import { RefreshButton } from '../components/ui/RefreshButton'
 import { detectHitlType, getPendingIntervention } from '../utils/hitl'
 import { isAwaitingAck } from '../utils/status'
 
@@ -151,20 +152,7 @@ export function Dashboard() {
     <div>
       {/* Date range selector + manual refresh */}
       <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-        <span style={{ fontSize: 11, color: 'var(--gray-400)' }}>
-          Updated {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-        </span>
-        <button
-          onClick={handleRefresh}
-          title="Refresh now"
-          style={{
-            background: 'none', border: '1px solid var(--gray-200)', borderRadius: 6,
-            padding: '5px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--gray-600)',
-            display: 'flex', alignItems: 'center', gap: 4,
-          }}
-        >
-          ↻ Refresh
-        </button>
+        <RefreshButton onRefresh={handleRefresh} lastRefreshed={lastRefreshed} />
         <DateRangeFilter value={datePreset} onChange={handleDateChange} />
       </div>
 

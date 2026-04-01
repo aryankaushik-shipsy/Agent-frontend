@@ -311,6 +311,7 @@ textarea { resize: vertical; min-height: 80px; }
 
 /* ─── SPINNER ─────────────────────────────────────────── */
 @keyframes spin { to { transform: rotate(360deg); } }
+.spin-once { animation: spin 0.65s cubic-bezier(0.4, 0, 0.2, 1); display: inline-block; }
 .spinner {
   display: inline-block; width: 18px; height: 18px;
   border: 2px solid var(--gray-200); border-top-color: var(--red);

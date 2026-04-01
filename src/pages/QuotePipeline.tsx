@@ -8,6 +8,7 @@ import { SearchBox } from '../components/pipeline/SearchBox'
 import { PipelineTable } from '../components/pipeline/PipelineTable'
 import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
 import { Button } from '../components/ui/Button'
+import { RefreshButton } from '../components/ui/RefreshButton'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import type { JobFilter } from '../types/api'
 
@@ -193,20 +194,7 @@ export function QuotePipeline() {
       <div className="pipeline-controls">
         <SearchBox value={search} onChange={setSearch} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 11, color: 'var(--gray-400)', whiteSpace: 'nowrap' }}>
-            {lastRefreshed.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-          </span>
-          <button
-            onClick={handleRefresh}
-            title="Refresh now"
-            style={{
-              background: 'none', border: '1px solid var(--gray-200)', borderRadius: 6,
-              padding: '5px 10px', cursor: 'pointer', fontSize: 13, color: 'var(--gray-600)',
-              display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap',
-            }}
-          >
-            ↻ Refresh
-          </button>
+          <RefreshButton onRefresh={handleRefresh} lastRefreshed={lastRefreshed} />
           <DateRangeFilter value={datePreset} onChange={handleDateChange} />
         </div>
       </div>

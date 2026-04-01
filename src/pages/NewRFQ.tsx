@@ -6,12 +6,15 @@ import { Button } from '../components/ui/Button'
 
 const SEND_EMAIL_WEBHOOK = 'https://wbdemo.shipsy.io/webhook/send-email'
 
+const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP']
+
 interface FormState {
   company_name: string
   sender_email: string
   contact_name: string
   origin: string
   destination: string
+  incoterms: string
   weight_kg: string
   length_cm: string
   width_cm: string
@@ -24,7 +27,7 @@ interface FormState {
 
 const EMPTY: FormState = {
   company_name: '', sender_email: '', contact_name: '',
-  origin: '', destination: '',
+  origin: '', destination: '', incoterms: '',
   weight_kg: '', length_cm: '', width_cm: '', height_cm: '', number_of_boxes: '',
   commodity: '', date: '', notes: '',
 }
@@ -51,6 +54,7 @@ export function NewRFQ() {
         `${form.weight_kg} kg`,
         `${dims}, ${form.number_of_boxes} piece(s) by air`,
         form.commodity    ? `commodity: ${form.commodity}`   : '',
+        form.incoterms    ? `incoterms: ${form.incoterms}`   : '',
         form.company_name ? `company: ${form.company_name}`  : '',
         form.contact_name ? `contact: ${form.contact_name}`  : '',
         form.notes        ? `notes: ${form.notes}`           : '',
@@ -143,6 +147,24 @@ export function NewRFQ() {
             <div className="form-group">
               <label>Shipment Date <span className="req">*</span></label>
               <input type="date" value={form.date} onChange={set('date')} required />
+            </div>
+            <div className="form-group">
+              <label>
+                Incoterms
+                <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--gray-400)', marginLeft: 6 }}>
+                  delivery obligation
+                </span>
+              </label>
+              <select
+                value={form.incoterms}
+                onChange={(e) => setForm((prev) => ({ ...prev, incoterms: e.target.value }))}
+                style={{ width: '100%' }}
+              >
+                <option value="">— Select Incoterms —</option>
+                {INCOTERMS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
