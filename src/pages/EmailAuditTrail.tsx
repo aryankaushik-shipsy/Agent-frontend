@@ -145,17 +145,13 @@ function PipelineStepper({ job }: { job: JobDetail }) {
 
 // ─── Message card ─────────────────────────────────────────────────────────────
 
-function MessageCard({ msg, index, quoteEmailHtml }: {
+function MessageCard({ msg, index }: {
   msg: ThreadMessage
   index: number
-  quoteEmailHtml: string | null
 }) {
   const msgId  = msg.id ?? String(index)
   const isOut  = (msg.labels ?? []).some((l) => l.id === 'SENT')
-  const isSentQuote = isOut && msg.payload?.mimeType === 'text/html'
-
   const [showFull, setShowFull] = useState(false)
-  const [showQuote, setShowQuote] = useState(false)
 
   // Fetch complete message only when user asks for it
   const { data: fullMsgData, isLoading: fullMsgLoading } = useQuery({
@@ -243,19 +239,6 @@ function MessageCard({ msg, index, quoteEmailHtml }: {
           </button>
         )}
 
-        {/* View Full Quote Email — only on the outbound HTML quote */}
-        {isSentQuote && quoteEmailHtml && (
-          <button
-            onClick={() => setShowQuote((v) => !v)}
-            style={{
-              background: 'none', border: '1px solid #2563eb', borderRadius: 5,
-              color: '#2563eb', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-              padding: '4px 12px',
-            }}
-          >
-            {showQuote ? 'Hide Quote Email ↑' : 'View Quote Email ↓'}
-          </button>
-        )}
       </div>
 
       {/* Full message body from webhook */}
@@ -280,17 +263,6 @@ function MessageCard({ msg, index, quoteEmailHtml }: {
         </div>
       )}
 
-      {/* Expanded full HTML from Type 3 HITL payload */}
-      {isSentQuote && showQuote && quoteEmailHtml && (
-        <div style={{ padding: '12px 14px', borderTop: '1px solid var(--gray-100)' }}>
-          <iframe
-            srcDoc={quoteEmailHtml}
-            sandbox="allow-same-origin"
-            title={`quote-email-${index}`}
-            style={{ width: '100%', border: 'none', minHeight: 300, maxHeight: 600 }}
-          />
-        </div>
-      )}
     </div>
   )
 }
@@ -413,7 +385,6 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
               key={msg.id ?? String(i)}
               msg={msg}
               index={i}
-              quoteEmailHtml={quoteEmailHtml}
             />
           ))}
         </div>
