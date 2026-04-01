@@ -44,7 +44,7 @@ export function deriveJobStatus(
   tasks?: Task[]
 ): StatusResult {
   if (status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (status === 'success') return { label: 'Quote Accepted', variant: 'green' }
+  if (status === 'success') return { label: 'Resolved', variant: 'green' }
   if (status === 'failed') return { label: 'Failed', variant: 'red' }
   if (status === 'interrupted') {
     if (isAwaitingAck({ status, tasks }))
@@ -69,7 +69,7 @@ export function deriveJobStatus(
 
 export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): StatusResult {
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
-  if (job.status === 'success') return { label: 'Quote Accepted', variant: 'green' }
+  if (job.status === 'success') return { label: 'Resolved', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
   if (job.status === 'interrupted') {
