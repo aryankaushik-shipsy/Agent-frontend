@@ -60,12 +60,12 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      const res = await axios.post(SEND_EMAIL_WEBHOOK, {
+      const buildPayload = (subject: string, ticketId: string) => ({
         input_params: {
           type:      'Platform',
           name:      form.company_name,
           threadID:  '',
-          subject:   'rfq',
+          subject,
           message,
           sender:    form.sender_email,
           messageID: '',
@@ -76,11 +76,19 @@ export function NewRFQ() {
         hubCode:    '',
         workflowId: String(RFQ_WORKFLOW_ID),
         source:     'n8n',
-        ticketId:   '',
+        ticketId,
       })
 
-      const payload = Array.isArray(res.data) ? res.data[0] : res.data
-      const jobId: number | null = payload?.job_id ?? null
+      // Step 1 — queue the job, get back the job_id
+      const res1   = await axios.post(SEND_EMAIL_WEBHOOK, buildPayload('rfq', ''))
+      const p1     = Array.isArray(res1.data) ? res1.data[0] : res1.data
+      const jobId: number | null = p1?.job_id ?? null
+
+      // Step 2 — re-submit with the correct subject (#RFQ-{jobId}) so n8n
+      // sends the email with the right subject line
+      if (jobId) {
+        await axios.post(SEND_EMAIL_WEBHOOK, buildPayload(`#RFQ-${jobId}`, String(jobId)))
+      }
 
       navigate('/pipeline', {
         state: {
