@@ -63,6 +63,18 @@ export function Type1Card({ job, intervention, payload, onAction, loading }: Pro
           <span className="approval-meta-label">Pieces</span>
           <span className="approval-meta-value">{item.number_of_boxes}</span>
         </div>
+        {item.commodity && (
+          <div className="approval-meta-item">
+            <span className="approval-meta-label">Commodity</span>
+            <span className="approval-meta-value">{item.commodity}</span>
+          </div>
+        )}
+        {item.incoterms && (
+          <div className="approval-meta-item">
+            <span className="approval-meta-label">Incoterms</span>
+            <span className="approval-meta-value">{item.incoterms}</span>
+          </div>
+        )}
       </div>
 
       {intervention.interrupt.details.summary && (

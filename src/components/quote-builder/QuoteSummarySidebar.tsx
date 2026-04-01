@@ -65,6 +65,18 @@ export function QuoteSummarySidebar({
         <span className="qs-label">Chargeable Weight</span>
         <span className="qs-val">{item.weight_kg} kg</span>
       </div>
+      {item.commodity && (
+        <div className="qs-row">
+          <span className="qs-label">Commodity</span>
+          <span className="qs-val">{item.commodity}</span>
+        </div>
+      )}
+      {item.incoterms && (
+        <div className="qs-row">
+          <span className="qs-label">Incoterms</span>
+          <span className="qs-val">{item.incoterms}</span>
+        </div>
+      )}
 
       {selectedCarrier && (
         <>

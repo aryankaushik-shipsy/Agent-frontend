@@ -12,6 +12,8 @@ export interface ShipmentItem {
   width_cm: number
   height_cm: number
   number_of_boxes: number
+  incoterms?: string
+  commodity?: string
 }
 
 export interface Type1Payload {

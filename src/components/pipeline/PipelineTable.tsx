@@ -27,6 +27,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
     const stage = detail ? derivePipelineStage(detail, hitlType) : { label: 'Loading…', variant: 'gray' as BadgeVariant }
 
     let customer = '—', route = '—', mode = '—', weight = '—'
+    let commodity: string | undefined, incoterms: string | undefined
     customer = getCustomerName(detail ?? job)
     // Primary: input_json.data[0] (in list response, no detail fetch needed)
     const shipment = getShipmentRow(job)
@@ -34,6 +35,8 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
       route = `${shipment.origin} → ${shipment.destination}`
       mode = shipment.mode ?? '—'
       weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
+      commodity = shipment.commodity
+      incoterms = shipment.incoterms
     } else if (detail) {
       // Fallback: HITL Type 1 payload
       const type1 = (detail.interventions ?? []).find((i) => {
@@ -47,6 +50,8 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
           route = `${item.origin} → ${item.destination}`
           mode = item.mode
           weight = `${item.weight_kg} kg`
+          commodity = item.commodity
+          incoterms = item.incoterms
         }
       }
     }
@@ -57,7 +62,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
     const latestTaskKey = latestTask?.node_key ?? latestTask?.title ?? '—'
 
     const traceRef = getTraceReference(detail ?? job)
-    return { job, detail, hitlType, stage, customer, route, mode, weight, latestTaskKey, traceRef }
+    return { job, detail, hitlType, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey, traceRef }
   }).filter((row) => {
     if (!searchQuery) return true
     const q = searchQuery.trim()
@@ -96,13 +101,20 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
               </td>
             </tr>
           )}
-          {rows.map(({ job, hitlType, stage, customer, route, mode, weight, latestTaskKey }) => (
+          {rows.map(({ job, hitlType, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey }) => (
             <tr key={job.id}>
               <td className="td-bold td-mono">#RFQ-{job.id}</td>
               <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {detailsLoading && customer === '—' ? <Spinner size="sm" /> : customer}
               </td>
-              <td>{route}</td>
+              <td>
+                <div>{route}</div>
+                {(commodity || incoterms) && (
+                  <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2 }}>
+                    {[commodity, incoterms].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </td>
               <td>{mode}</td>
               <td>{weight}</td>
               <td>

@@ -121,7 +121,7 @@ export function getTraceReference(
   )
 }
 
-type ShipmentRow = { origin?: string; destination?: string; mode?: string; weight_kg?: number }
+type ShipmentRow = { origin?: string; destination?: string; mode?: string; weight_kg?: number; incoterms?: string; commodity?: string }
 
 export function getShipmentRow(job: { input_json?: { data?: unknown[] } | null }): ShipmentRow | null {
   const row = job?.input_json?.data?.[0]
