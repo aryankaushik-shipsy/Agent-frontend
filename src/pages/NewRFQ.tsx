@@ -34,19 +34,15 @@ const EMPTY: FormState = {
 
 export function NewRFQ() {
   const navigate = useNavigate()
-  const [form, setForm]       = useState<FormState>(EMPTY)
-  const [isPending, setIsPending] = useState(false)
-  const [error, setError]     = useState<string | null>(null)
+  const [form, setForm] = useState<FormState>(EMPTY)
 
   function set(key: keyof FormState) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }))
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError(null)
-    setIsPending(true)
     try {
       const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm} cm`
       const message = [
@@ -60,7 +56,7 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      const res = await axios.post(SEND_EMAIL_WEBHOOK, {
+      axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.company_name,
@@ -79,33 +75,14 @@ export function NewRFQ() {
         ticketId:   '',
       })
 
-      const payload = Array.isArray(res.data) ? res.data[0] : res.data
-      const jobId: number | null = payload?.job_id ?? null
-
-      navigate('/pipeline', {
-        state: {
-          flash: jobId
-            ? `#RFQ-${jobId} created — it will appear in the pipeline in 1–2 minutes.`
-            : 'RFQ submitted — the job will appear in the pipeline in 1–2 minutes.',
-        },
-      })
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
-      setIsPending(false)
+      navigate('/pipeline')
+    } catch {
+      navigate('/pipeline')
     }
   }
 
   return (
     <div style={{ maxWidth: 800 }}>
-      {error && (
-        <div className="banner banner-yellow" style={{ marginBottom: 16 }}>
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
-          </svg>
-          <div className="banner-content">{error}</div>
-        </div>
-      )}
-
       <form onSubmit={handleSubmit}>
         {/* Section 1 — Customer */}
         <div className="form-card">
@@ -223,22 +200,11 @@ export function NewRFQ() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
-          {isPending && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 8, fontSize: 13,
-              color: 'var(--gray-500)', flex: 1,
-            }}>
-              <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 15, height: 15, color: '#6366f1', flexShrink: 0 }}>
-                <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-              </svg>
-              The agent is making a quotation request on your behalf…
-            </div>
-          )}
-          <Button variant="ghost" type="button" disabled={isPending} onClick={() => setForm(EMPTY)}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <Button variant="ghost" type="button" onClick={() => setForm(EMPTY)}>
             Clear Form
           </Button>
-          <Button variant="primary" type="submit" loading={isPending}>
+          <Button variant="primary" type="submit">
             Submit RFQ
           </Button>
         </div>
