@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import { Button } from '../components/ui/Button'
@@ -31,18 +31,9 @@ const EMPTY: FormState = {
 
 export function NewRFQ() {
   const navigate = useNavigate()
-  const [form, setForm]           = useState<FormState>(EMPTY)
-  const [isPending, setIsPending]   = useState(false)
-  const [copied, setCopied]         = useState(false)
-
-  const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }, [])
-  const [submitted, setSubmitted] = useState<{ jobId: number | null; threadId: string | null } | null>(null)
-  const [error, setError]         = useState<string | null>(null)
+  const [form, setForm]       = useState<FormState>(EMPTY)
+  const [isPending, setIsPending] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
 
   function set(key: keyof FormState) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
@@ -54,7 +45,6 @@ export function NewRFQ() {
     setError(null)
     setIsPending(true)
     try {
-      // Build natural-language message the agent will parse
       const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm} cm`
       const message = [
         `${form.origin} to ${form.destination} on ${form.date}`,
@@ -66,7 +56,7 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      const res = await axios.post(SEND_EMAIL_WEBHOOK, {
+      await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.company_name,
@@ -84,97 +74,15 @@ export function NewRFQ() {
         source:     'n8n',
         ticketId:   '',
       })
-      // Response may be [{job_id, status, ...}] or [{id, threadId, labelIds}]
-      const payload = Array.isArray(res.data) ? res.data[0] : res.data
-      setSubmitted({
-        jobId:    payload?.job_id ?? null,
-        threadId: payload?.threadId ?? payload?.id ?? null,
+
+      // Redirect to pipeline with a flash message
+      navigate('/pipeline', {
+        state: { flash: 'RFQ submitted — the job will appear in the pipeline in 1–2 minutes.' },
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
-    } finally {
       setIsPending(false)
     }
-  }
-
-  if (submitted) {
-    return (
-      <div style={{ maxWidth: 560, margin: '0 auto', paddingTop: 24 }}>
-        <div className="banner banner-green">
-          <svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-          </svg>
-          <div className="banner-content">
-            <div className="banner-title">
-              RFQ {submitted.jobId ? `#${submitted.jobId}` : ''} submitted successfully
-            </div>
-            <div>The agent is processing your quotation request. The RFQ entry will be visible on the dashboard in 1–2 minutes.</div>
-          </div>
-        </div>
-
-        <div style={{
-          marginTop: 16, padding: '14px 18px', background: 'white',
-          borderRadius: 8, border: '1px solid var(--gray-100)',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
-        }}>
-          <div style={{ display: 'flex', gap: 24 }}>
-            {submitted.jobId && (
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 3 }}>Job ID</div>
-                <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15 }}>
-                  #RFQ-{submitted.jobId}
-                </div>
-              </div>
-            )}
-            {submitted.threadId && (
-              <div>
-                <div style={{ fontSize: 11, color: 'var(--gray-400)', marginBottom: 3 }}>Reference Number</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: 13, color: 'var(--gray-700)', letterSpacing: '0.01em' }}>
-                    {submitted.threadId}
-                  </span>
-                  <button
-                    onClick={() => handleCopy(submitted.threadId!)}
-                    title="Copy reference number"
-                    style={{
-                      background: 'none', border: 'none', cursor: 'pointer', padding: '2px 4px',
-                      borderRadius: 4, color: copied ? '#16a34a' : 'var(--gray-400)',
-                      display: 'flex', alignItems: 'center', transition: 'color 0.15s',
-                    }}
-                  >
-                    {copied ? (
-                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                      </svg>
-                    ) : (
-                      <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
-                        <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <Link
-            to={submitted.jobId ? `/pipeline?highlight=${submitted.jobId}` : '/pipeline'}
-            className="btn btn-primary"
-            style={{ fontSize: 13, flexShrink: 0 }}
-          >
-            Track in Pipeline →
-          </Link>
-        </div>
-
-        <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-          <Link to="/pipeline" className="btn btn-ghost">
-            View All Jobs
-          </Link>
-          <Button variant="ghost" onClick={() => { setSubmitted(null); setForm(EMPTY) }}>
-            Submit Another
-          </Button>
-        </div>
-      </div>
-    )
   }
 
   return (

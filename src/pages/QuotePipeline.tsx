@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQueries, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { useLocation } from 'react-router-dom'
 import { getJobs } from '../api/jobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { FilterTabs, type PipelineTab } from '../components/pipeline/FilterTabs'
@@ -51,6 +52,10 @@ const COUNT_TABS: PipelineTab[] = ['processing', 'pending', 'sent', 'failed']
 
 export function QuotePipeline() {
   const queryClient = useQueryClient()
+  const location    = useLocation()
+  const [flash, setFlash] = useState<string | null>(
+    (location.state as { flash?: string } | null)?.flash ?? null
+  )
   const [activeTab, setActiveTab]   = useState<PipelineTab>('all')
   const [page, setPage]             = useState(1)
   const [search, setSearch]         = useState('')
@@ -164,6 +169,26 @@ export function QuotePipeline() {
 
   return (
     <div>
+      {/* Flash message from New RFQ submission */}
+      {flash && (
+        <div className="banner banner-green" style={{ marginBottom: 16, position: 'relative' }}>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+          </svg>
+          <div className="banner-content">{flash}</div>
+          <button
+            onClick={() => setFlash(null)}
+            style={{
+              position: 'absolute', top: 10, right: 12,
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 16, color: '#166534', lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Top controls: search + date filter + refresh */}
       <div className="pipeline-controls">
         <SearchBox value={search} onChange={setSearch} />
