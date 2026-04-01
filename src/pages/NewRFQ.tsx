@@ -60,7 +60,7 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      await axios.post(SEND_EMAIL_WEBHOOK, {
+      const res = await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.company_name,
@@ -79,9 +79,15 @@ export function NewRFQ() {
         ticketId:   '',
       })
 
-      // Redirect to pipeline with a flash message
+      const payload = Array.isArray(res.data) ? res.data[0] : res.data
+      const jobId: number | null = payload?.job_id ?? null
+
       navigate('/pipeline', {
-        state: { flash: 'RFQ submitted — the job will appear in the pipeline in 1–2 minutes.' },
+        state: {
+          flash: jobId
+            ? `#RFQ-${jobId} created — it will appear in the pipeline in 1–2 minutes.`
+            : 'RFQ submitted — the job will appear in the pipeline in 1–2 minutes.',
+        },
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed. Please try again.')
