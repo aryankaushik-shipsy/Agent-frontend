@@ -9,6 +9,8 @@ import { RecentRFQsTable } from '../components/dashboard/RecentRFQsTable'
 import { AIPerformancePanel } from '../components/dashboard/AIPerformancePanel'
 import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
 import { SearchBox } from '../components/pipeline/SearchBox'
+import { detectHitlType, getPendingIntervention } from '../utils/hitl'
+import { isAwaitingAck } from '../utils/status'
 
 const PRESET_LABELS: Record<DatePreset, string> = {
   today:     'Today',
@@ -80,10 +82,24 @@ export function Dashboard() {
         queryFn: () => getJobs({ statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100 }),
         staleTime: 60_000,
       },
+      // 6 — ALL active-intervention jobs (wider page) — used to split Get Quote vs Send Quote counts
+      {
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }),
+        staleTime: 15_000,
+        refetchInterval: 15_000,
+      },
+      // 7 — interrupted non-active-intervention jobs — used for Awaiting Ack count
+      {
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }),
+        staleTime: 15_000,
+        refetchInterval: 15_000,
+      },
     ],
   })
 
-  const [insightsRes, activeRes, todayRes, recentRes, pendingRes, completedRes] = results
+  const [insightsRes, activeRes, todayRes, recentRes, pendingRes, completedRes, allPendingRes, interruptedRes] = results
 
   // IDs of jobs with active interventions (fetched separately — API excludes them otherwise)
   const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))
@@ -110,6 +126,27 @@ export function Dashboard() {
     return { ...j, ...detail, created_at: detail.created_at ?? j.created_at }
   })
 
+  // Fetch details for all pending intervention jobs to split by HITL type
+  const allPendingJobs = allPendingRes.data?.jobs ?? []
+  const { data: allPendingDetails } = useJobDetails(allPendingJobs.map(j => j.id))
+
+  // Fetch details for interrupted non-active-intervention jobs to count awaiting-ack
+  const interruptedJobs = interruptedRes.data?.jobs ?? []
+  const { data: interruptedDetails } = useJobDetails(interruptedJobs.map(j => j.id))
+
+  // Metric counts
+  const getQuoteApprovalPending = allPendingDetails.filter(d => {
+    const type = detectHitlType(getPendingIntervention(d.interventions)!)
+    return type === 1 || type === 2
+  }).length
+
+  const sendQuoteApprovalPending = allPendingDetails.filter(d => {
+    const type = detectHitlType(getPendingIntervention(d.interventions)!)
+    return type === 3
+  }).length
+
+  const awaitingAckCount = interruptedDetails.filter(d => isAwaitingAck(d)).length
+
   return (
     <div>
       {/* Date range selector + manual refresh */}
@@ -132,12 +169,13 @@ export function Dashboard() {
       </div>
 
       <MetricsGrid
-        activeRFQs={activeRes.data?.total}
+        awaitingAck={awaitingAckCount}
+        getQuoteApprovalPending={getQuoteApprovalPending}
+        sendQuoteApprovalPending={sendQuoteApprovalPending}
         quotesToday={todayRes.data?.total}
-        pendingApprovals={pendingRes.data?.total}
-        loadingActive={activeRes.isLoading}
+        loadingPending={allPendingRes.isLoading}
+        loadingInterrupted={interruptedRes.isLoading}
         loadingToday={todayRes.isLoading}
-        loadingInsights={insightsRes.isLoading}
       />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, alignItems: 'start' }}>

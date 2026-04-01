@@ -39,7 +39,7 @@
 .card-body { padding: 20px; }
 
 /* ─── METRICS ─────────────────────────────────────────── */
-.metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
 .metric-card {
   background: var(--white); border-radius: var(--radius);
   padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px;
