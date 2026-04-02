@@ -49,25 +49,43 @@ export function NewRFQ() {
     setIsPending(true)
     try {
       const dims = `${form.length_cm} x ${form.width_cm} x ${form.height_cm} cm`
+
       const message = [
-        'A request for quotation was submitted to us on your behalf.',
-        '',
-        `Company: ${form.company_name}`,
-        form.contact_name ? `Contact Person: ${form.contact_name}` : '',
-        `Customer Email: ${form.sender_email}`,
-        '',
-        `Origin: ${form.origin}`,
-        `Destination: ${form.destination}`,
-        `Shipment Date: ${form.date}`,
-        `Mode: Air`,
-        form.incoterms ? `Incoterms: ${form.incoterms}` : '',
-        '',
-        `Gross Weight: ${form.weight_kg} kg`,
-        `Number of Pieces: ${form.number_of_boxes}`,
-        `Dimensions: ${dims}`,
-        `Commodity: ${form.commodity}`,
-        form.notes ? `Special Instructions: ${form.notes}` : '',
-      ].filter((line) => line !== undefined && line !== null).join('\n')
+        '<p>A request for quotation was submitted to us on your behalf.</p>',
+        '<table cellpadding="4" cellspacing="0" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;">',
+        `  <tr><td><strong>Company</strong></td><td>${form.company_name}</td></tr>`,
+        form.contact_name ? `  <tr><td><strong>Contact Person</strong></td><td>${form.contact_name}</td></tr>` : '',
+        `  <tr><td><strong>Customer Email</strong></td><td>${form.sender_email}</td></tr>`,
+        '  <tr><td colspan="2"><hr style="margin:6px 0"/></td></tr>',
+        `  <tr><td><strong>Origin</strong></td><td>${form.origin}</td></tr>`,
+        `  <tr><td><strong>Destination</strong></td><td>${form.destination}</td></tr>`,
+        `  <tr><td><strong>Shipment Date</strong></td><td>${form.date}</td></tr>`,
+        '  <tr><td><strong>Mode</strong></td><td>Air</td></tr>',
+        form.incoterms ? `  <tr><td><strong>Incoterms</strong></td><td>${form.incoterms}</td></tr>` : '',
+        '  <tr><td colspan="2"><hr style="margin:6px 0"/></td></tr>',
+        `  <tr><td><strong>Gross Weight</strong></td><td>${form.weight_kg} kg</td></tr>`,
+        `  <tr><td><strong>Number of Pieces</strong></td><td>${form.number_of_boxes}</td></tr>`,
+        `  <tr><td><strong>Dimensions</strong></td><td>${dims}</td></tr>`,
+        `  <tr><td><strong>Commodity</strong></td><td>${form.commodity}</td></tr>`,
+        form.notes ? `  <tr><td><strong>Special Instructions</strong></td><td>${form.notes}</td></tr>` : '',
+        '</table>',
+      ].filter(Boolean).join('\n')
+
+      const data = [
+        form.company_name,
+        form.contact_name,
+        form.sender_email,
+        form.origin,
+        form.destination,
+        form.date,
+        'Air',
+        form.incoterms,
+        `${form.weight_kg} kg`,
+        form.number_of_boxes,
+        dims,
+        form.commodity,
+        form.notes,
+      ].filter(Boolean).join(', ')
 
       await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
@@ -78,7 +96,7 @@ export function NewRFQ() {
           message,
           sender:    form.sender_email,
           messageID: '',
-          data:      message,
+          data,
         },
         objectId:   '',
         objectType: 'Email',
