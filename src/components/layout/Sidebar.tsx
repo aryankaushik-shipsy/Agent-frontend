@@ -6,9 +6,9 @@ export function Sidebar() {
 
   return (
     <nav id="sidebar">
-      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '16px 16px 14px' }}>
+      <div className="sidebar-logo" style={{ flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center', gap: 1, padding: '0 18px' }}>
         {/* Aramex wordmark — brand red #C8342A, lowercase rounded sans-serif */}
-        <svg viewBox="0 0 132 32" style={{ width: 110, height: 28 }} aria-label="Aramex">
+        <svg viewBox="0 0 132 32" style={{ width: 110, height: 26, display: 'block' }} aria-label="Aramex">
           <text
             x="0" y="26"
             fontFamily="'Arial Rounded MT Bold', 'Arial', sans-serif"
@@ -20,7 +20,7 @@ export function Sidebar() {
             aramex
           </text>
         </svg>
-        <div className="sidebar-logo-sub" style={{ letterSpacing: '.5px', marginTop: 0, paddingLeft: 1 }}>Freight AI</div>
+        <div className="sidebar-logo-sub" style={{ lineHeight: 1 }}>Freight AI</div>
       </div>
 
       <div className="nav-section-label">Navigation</div>
