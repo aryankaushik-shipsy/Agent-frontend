@@ -34,15 +34,19 @@ const EMPTY: FormState = {
 
 export function NewRFQ() {
   const navigate = useNavigate()
-  const [form, setForm] = useState<FormState>(EMPTY)
+  const [form, setForm]       = useState<FormState>(EMPTY)
+  const [isPending, setIsPending] = useState(false)
+  const [error, setError]     = useState<string | null>(null)
 
   function set(key: keyof FormState) {
     return (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((prev) => ({ ...prev, [key]: e.target.value }))
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setError(null)
+    setIsPending(true)
     try {
       const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm} cm`
       const message = [
@@ -56,7 +60,7 @@ export function NewRFQ() {
         form.notes        ? `notes: ${form.notes}`           : '',
       ].filter(Boolean).join(', ')
 
-      axios.post(SEND_EMAIL_WEBHOOK, {
+      await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.company_name,
@@ -76,13 +80,27 @@ export function NewRFQ() {
       })
 
       navigate('/pipeline')
-    } catch {
-      navigate('/pipeline')
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status
+      setError(
+        status
+          ? `Network error — server responded with ${status}. Please try again.`
+          : 'Could not reach the server. Check your connection and try again.'
+      )
+      setIsPending(false)
     }
   }
 
   return (
     <div style={{ maxWidth: 800 }}>
+      {error && (
+        <div className="banner banner-yellow" style={{ marginBottom: 16 }}>
+          <svg viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" />
+          </svg>
+          <div className="banner-content">{error}</div>
+        </div>
+      )}
       <form onSubmit={handleSubmit}>
         {/* Section 1 — Customer */}
         <div className="form-card">
@@ -201,10 +219,10 @@ export function NewRFQ() {
         </div>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <Button variant="ghost" type="button" onClick={() => setForm(EMPTY)}>
+          <Button variant="ghost" type="button" disabled={isPending} onClick={() => setForm(EMPTY)}>
             Clear Form
           </Button>
-          <Button variant="primary" type="submit">
+          <Button variant="primary" type="submit" loading={isPending}>
             Submit RFQ
           </Button>
         </div>
