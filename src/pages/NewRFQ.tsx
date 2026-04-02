@@ -48,24 +48,33 @@ export function NewRFQ() {
     setError(null)
     setIsPending(true)
     try {
-      const dims = `${form.length_cm}x${form.width_cm}x${form.height_cm} cm`
+      const dims = `${form.length_cm} x ${form.width_cm} x ${form.height_cm} cm`
       const message = [
-        `${form.origin} to ${form.destination} on ${form.date}`,
-        `${form.weight_kg} kg`,
-        `${dims}, ${form.number_of_boxes} piece(s) by air`,
-        form.commodity    ? `commodity: ${form.commodity}`   : '',
-        form.incoterms    ? `incoterms: ${form.incoterms}`   : '',
-        form.company_name ? `company: ${form.company_name}`  : '',
-        form.contact_name ? `contact: ${form.contact_name}`  : '',
-        form.notes        ? `notes: ${form.notes}`           : '',
-      ].filter(Boolean).join(', ')
+        'A request for quotation was submitted to us on your behalf.',
+        '',
+        `Company: ${form.company_name}`,
+        form.contact_name ? `Contact Person: ${form.contact_name}` : '',
+        `Customer Email: ${form.sender_email}`,
+        '',
+        `Origin: ${form.origin}`,
+        `Destination: ${form.destination}`,
+        `Shipment Date: ${form.date}`,
+        `Mode: Air`,
+        form.incoterms ? `Incoterms: ${form.incoterms}` : '',
+        '',
+        `Gross Weight: ${form.weight_kg} kg`,
+        `Number of Pieces: ${form.number_of_boxes}`,
+        `Dimensions: ${dims}`,
+        `Commodity: ${form.commodity}`,
+        form.notes ? `Special Instructions: ${form.notes}` : '',
+      ].filter((line) => line !== undefined && line !== null).join('\n')
 
       await axios.post(SEND_EMAIL_WEBHOOK, {
         input_params: {
           type:      'Platform',
           name:      form.company_name,
           threadID:  '',
-          subject:   'rfq',
+          subject:   'Request for Quotation',
           message,
           sender:    form.sender_email,
           messageID: '',
