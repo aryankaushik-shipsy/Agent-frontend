@@ -55,7 +55,6 @@ export function NewRFQ() {
         "<table cellpadding='4' cellspacing='0' style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;'>",
         `  <tr><td><strong>Company</strong></td><td>${form.company_name}</td></tr>`,
         form.contact_name ? `  <tr><td><strong>Contact Person</strong></td><td>${form.contact_name}</td></tr>` : '',
-        `  <tr><td><strong>Customer Email</strong></td><td>${form.sender_email}</td></tr>`,
         "  <tr><td colspan='2'><hr style='margin:6px 0'/></td></tr>",
         `  <tr><td><strong>Origin</strong></td><td>${form.origin}</td></tr>`,
         `  <tr><td><strong>Destination</strong></td><td>${form.destination}</td></tr>`,
