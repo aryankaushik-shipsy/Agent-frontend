@@ -66,17 +66,17 @@ export function Dashboard() {
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
-      // 3 — recent non-intervention jobs (API excludes active_interventions when filter absent)
+      // 3 — all non-intervention jobs for selected period (client-side paginated)
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
-      // 4 — recent pending-intervention jobs (separate call needed — API can't return both in one)
+      // 4 — all pending-intervention jobs for selected period (client-side paginated)
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
@@ -86,17 +86,17 @@ export function Dashboard() {
         queryFn: () => getJobs({ statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100 }),
         staleTime: 60_000,
       },
-      // 6 — active-intervention jobs (page 1 of 10) — used to split Get Quote vs Send Quote counts
+      // 6 — active-intervention jobs for selected period — used to split Get Quote vs Send Quote counts
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
-      // 7 — interrupted non-active-intervention jobs — used for Awaiting Ack count
+      // 7 — interrupted non-active-intervention jobs for selected period — used for Awaiting Ack count
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, statuses: ['interrupted'], active_interventions: false, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, statuses: ['interrupted'], active_interventions: false, result_per_page: 100, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
@@ -109,7 +109,7 @@ export function Dashboard() {
   const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))
 
   // Merge regular + pending-intervention jobs, deduplicate, sort newest first
-  const recentJobs = (() => {
+  const allRecentJobs = (() => {
     const all = [...(recentRes.data?.jobs ?? []), ...(pendingRes.data?.jobs ?? [])]
     const seen = new Set<number>()
     return all
@@ -117,20 +117,20 @@ export function Dashboard() {
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
   })()
 
-  const recentTotalPages = Math.max(recentRes.data?.total_pages ?? 1, pendingRes.data?.total_pages ?? 1)
-  const recentTotal = (recentRes.data?.total ?? 0) + (pendingRes.data?.total ?? 0)
+  const recentTotal      = allRecentJobs.length
+  const recentTotalPages = Math.max(1, Math.ceil(recentTotal / 10))
 
-  // Fetch full details for visible recent jobs (needed for input_json → route/mode/weight)
-  // Safe now that we're date-scoped — only today's jobs (~10 max)
-  const { data: recentDetails, isLoading: detailsLoading } = useJobDetails(recentJobs.map(j => j.id))
+  // Fetch details for all jobs in this period, then paginate client-side
+  const { data: recentDetails, isLoading: detailsLoading } = useJobDetails(allRecentJobs.map(j => j.id))
   const detailMap = new Map(recentDetails.map(d => [d.id, d]))
-  // Merge detail onto list job — detail has input_json/tasks/interventions,
-  // list job has created_at which the detail endpoint may omit.
-  const recentJobsWithDetails = recentJobs.map(j => {
+  const allRecentWithDetails = allRecentJobs.map(j => {
     const detail = detailMap.get(j.id)
     if (!detail) return j
     return { ...j, ...detail, created_at: detail.created_at ?? j.created_at }
   })
+
+  // Client-side pagination
+  const recentJobsWithDetails = allRecentWithDetails.slice((recentPage - 1) * 10, recentPage * 10)
 
   // Fetch details for all pending intervention jobs to split by HITL type
   const allPendingJobs = allPendingRes.data?.jobs ?? []
