@@ -92,8 +92,8 @@ export function QuotePipeline() {
   // when active_interventions param is absent, so they'd never appear otherwise.
   const allInterventionFilter: JobFilter = {
     workflow_ids: [RFQ_WORKFLOW_ID],
-    result_per_page: 50,
-    page_number: 1,
+    result_per_page: 10,
+    page_number: page,
     order_by: 'desc',
     sort_by: 'created_at',
     created_at_from: dateRange.from,

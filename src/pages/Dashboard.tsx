@@ -10,6 +10,7 @@ import { AIPerformancePanel } from '../components/dashboard/AIPerformancePanel'
 import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from '../components/pipeline/DateRangeFilter'
 import { SearchBox } from '../components/pipeline/SearchBox'
 import { RefreshButton } from '../components/ui/RefreshButton'
+import { Button } from '../components/ui/Button'
 import { detectHitlType, getPendingIntervention } from '../utils/hitl'
 import { isAwaitingAck } from '../utils/status'
 
@@ -27,6 +28,7 @@ export function Dashboard() {
   const [dateRange, setDateRange]   = useState<DateRange>(() => presetToRange('today'))
   const [lastRefreshed, setLastRefreshed] = useState<Date>(new Date())
   const [search, setSearch]         = useState('')
+  const [recentPage, setRecentPage] = useState(1)
 
   function handleRefresh() {
     queryClient.invalidateQueries({ queryKey: ['jobs'] })
@@ -39,6 +41,7 @@ export function Dashboard() {
   function handleDateChange(preset: DatePreset, range: DateRange) {
     setDatePreset(preset)
     setDateRange(range)
+    setRecentPage(1)
   }
 
   const results = useQueries({
@@ -65,15 +68,15 @@ export function Dashboard() {
       },
       // 3 — recent non-intervention jobs (API excludes active_interventions when filter absent)
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
       // 4 — recent pending-intervention jobs (separate call needed — API can't return both in one)
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, active_interventions: true, result_per_page: 10, page_number: recentPage, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
@@ -83,17 +86,17 @@ export function Dashboard() {
         queryFn: () => getJobs({ statuses: ['success'], workflow_ids: [RFQ_WORKFLOW_ID], created_at_from: from, created_at_to: to, result_per_page: 100 }),
         staleTime: 60_000,
       },
-      // 6 — ALL active-intervention jobs (wider page) — used to split Get Quote vs Send Quote counts
+      // 6 — active-intervention jobs (page 1 of 10) — used to split Get Quote vs Send Quote counts
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], active_interventions: true, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
       // 7 — interrupted non-active-intervention jobs — used for Awaiting Ack count
       {
-        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }],
-        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 50, sort_by: 'created_at', order_by: 'desc' }),
+        queryKey: ['jobs', { workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }],
+        queryFn: () => getJobs({ workflow_ids: [RFQ_WORKFLOW_ID], statuses: ['interrupted'], active_interventions: false, result_per_page: 10, sort_by: 'created_at', order_by: 'desc' }),
         staleTime: 15_000,
         refetchInterval: 15_000,
       },
@@ -105,15 +108,17 @@ export function Dashboard() {
   // IDs of jobs with active interventions (fetched separately — API excludes them otherwise)
   const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))
 
-  // Merge regular + pending-intervention jobs, deduplicate, sort newest first, cap at 10
+  // Merge regular + pending-intervention jobs, deduplicate, sort newest first
   const recentJobs = (() => {
     const all = [...(recentRes.data?.jobs ?? []), ...(pendingRes.data?.jobs ?? [])]
     const seen = new Set<number>()
     return all
       .filter(j => { if (seen.has(j.id)) return false; seen.add(j.id); return true })
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 10)
   })()
+
+  const recentTotalPages = Math.max(recentRes.data?.total_pages ?? 1, pendingRes.data?.total_pages ?? 1)
+  const recentTotal = (recentRes.data?.total ?? 0) + (pendingRes.data?.total ?? 0)
 
   // Fetch full details for visible recent jobs (needed for input_json → route/mode/weight)
   // Safe now that we're date-scoped — only today's jobs (~10 max)
@@ -185,6 +190,20 @@ export function Dashboard() {
             pendingIds={pendingIds}
             searchQuery={search}
           />
+          <div className="pagination">
+            <span className="pagination-info">
+              {recentTotal > 0
+                ? `Showing ${Math.min((recentPage - 1) * 10 + 1, recentTotal)}–${Math.min(recentPage * 10, recentTotal)} of ${recentTotal}`
+                : 'No results'}
+            </span>
+            <Button variant="ghost" disabled={recentPage <= 1} onClick={() => setRecentPage(p => p - 1)} style={{ padding: '5px 12px', fontSize: 12 }}>
+              ← Prev
+            </Button>
+            <span style={{ fontSize: 12, color: 'var(--gray-600)' }}>{recentPage} / {recentTotalPages}</span>
+            <Button variant="ghost" disabled={recentPage >= recentTotalPages} onClick={() => setRecentPage(p => p + 1)} style={{ padding: '5px 12px', fontSize: 12 }}>
+              Next →
+            </Button>
+          </div>
         </div>
 
         <AIPerformancePanel
