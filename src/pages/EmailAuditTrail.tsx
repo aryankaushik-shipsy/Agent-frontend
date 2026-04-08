@@ -1,10 +1,11 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { RFQ_WORKFLOW_ID } from '../constants'
 import { Spinner } from '../components/ui/Spinner'
 import { Button } from '../components/ui/Button'
+import { RefreshButton } from '../components/ui/RefreshButton'
 import { getCustomerName } from '../utils/status'
 import { formatRelativeTime } from '../utils/time'
 import { getJobById } from '../api/jobs'
@@ -270,6 +271,16 @@ function MessageCard({ msg, index }: {
 // ─── Trail view ───────────────────────────────────────────────────────────────
 
 function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
+  const queryClient = useQueryClient()
+  const [lastRefreshed, setLastRefreshed] = useState(new Date())
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ['job', listJob.id] })
+    queryClient.invalidateQueries({ queryKey: ['thread'] })
+    queryClient.invalidateQueries({ queryKey: ['message'] })
+    setLastRefreshed(new Date())
+  }
+
   // Fetch full job detail — used only for the pipeline stepper
   const { data: jobDetail } = useQuery({
     queryKey: ['job', listJob.id],
@@ -320,6 +331,7 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
         >
           ← Back
         </button>
+        <RefreshButton onRefresh={handleRefresh} lastRefreshed={lastRefreshed} />
         <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 16 }}>#RFQ-{listJob.id}</span>
         <span style={{
           fontSize: 11, fontWeight: 600,
@@ -442,11 +454,18 @@ function JobAuditCard({ job, onGetTrail }: { job: Job; onGetTrail: (job: Job) =>
 export function EmailAuditTrail() {
   const { jobId: paramJobId } = useParams<{ jobId: string }>()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [lastRefreshed, setLastRefreshed] = useState(new Date())
 
   const [searchQuery, setSearchQuery]     = useState('')
   const [trailJob,    setTrailJob]        = useState<Job | null>(null)
   const [lookupError, setLookupError]     = useState('')
   const [lookupLoading, setLookupLoading] = useState(false)
+
+  function handleRefresh() {
+    queryClient.invalidateQueries({ queryKey: ['jobs'] })
+    setLastRefreshed(new Date())
+  }
 
   const { data: jobsData, isLoading: jobsLoading } = useJobs({
     workflow_ids: [RFQ_WORKFLOW_ID],
@@ -524,6 +543,7 @@ export function EmailAuditTrail() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <RefreshButton onRefresh={handleRefresh} lastRefreshed={lastRefreshed} />
         <div style={{ position: 'relative', flex: '1 1 300px', maxWidth: 420 }}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
             style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 15, height: 15, color: 'var(--gray-400)', pointerEvents: 'none' }}>
