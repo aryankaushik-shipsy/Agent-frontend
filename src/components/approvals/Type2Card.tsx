@@ -31,7 +31,8 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
   // Non-end actions mapped to carriers; end action becomes Reject button
   const carrierActions = intervention.interrupt.actions.filter(a => a.id !== 'end')
   const hasEndAction = intervention.interrupt.actions.some(a => a.id === 'end')
-  const hasDiscount = carrier?.adjusted_grand_total !== undefined
+  const discount = carrier?.discount ?? null
+  const hasDiscount = discount != null
 
   return (
     <div className="approval-card">
@@ -84,24 +85,24 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
             <span className="approval-meta-label">Recommended Carrier</span>
             <span className="approval-meta-value">{carrier.carrier}</span>
           </div>
-          {hasDiscount ? (
+          {hasDiscount && discount ? (
             <>
               <div className="approval-meta-item">
                 <span className="approval-meta-label">Original Quote</span>
                 <span className="approval-meta-value" style={{ textDecoration: 'line-through', color: 'var(--gray-400)' }}>
-                  {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+                  {carrier.currency_code} {discount.original_grand_total?.toLocaleString() ?? carrier.grand_total?.toLocaleString() ?? '—'}
                 </span>
               </div>
               <div className="approval-meta-item">
                 <span className="approval-meta-label">Discount</span>
                 <span className="approval-meta-value" style={{ color: '#dc2626' }}>
-                  −{carrier.discount_pct?.toFixed(1)}% ({carrier.currency_code} {carrier.discount_amount?.toLocaleString() ?? '—'})
+                  −{discount.discount_pct?.toFixed(1)}% ({carrier.currency_code} {discount.discount_amount?.toLocaleString() ?? '—'})
                 </span>
               </div>
               <div className="approval-meta-item">
                 <span className="approval-meta-label">Adjusted Total</span>
                 <span className="approval-meta-value" style={{ fontSize: 15, color: 'var(--dark)', fontWeight: 700 }}>
-                  {carrier.currency_code} {carrier.adjusted_grand_total?.toLocaleString() ?? '—'}
+                  {carrier.currency_code} {discount.adjusted_grand_total?.toLocaleString() ?? '—'}
                 </span>
               </div>
             </>
