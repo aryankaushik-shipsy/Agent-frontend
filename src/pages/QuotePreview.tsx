@@ -180,20 +180,31 @@ export function QuotePreview() {
               />
             )}
             {/* Discount section — only shown when customer sent a price cap */}
-            {selectedCarrier.discount && (
-              <>
-                <Row
-                  label="Original Total"
-                  value={`${selectedCarrier.currency_code} ${selectedCarrier.discount.original_grand_total.toLocaleString()}`}
-                  strikethrough
-                />
-                <Row
-                  label={`Discount (−${selectedCarrier.discount.discount_pct.toFixed(1)}%)`}
-                  value={`−${selectedCarrier.currency_code} ${selectedCarrier.discount.discount_amount.toLocaleString()}`}
-                  red
-                />
-              </>
-            )}
+            {selectedCarrier.discount && (() => {
+              const d = selectedCarrier.discount
+              const base = selectedCarrier.subtotal_before_markup ?? selectedCarrier.subtotal
+              const marginAtCap = d.adjusted_grand_total - base
+              const marginAtCapPct = base > 0 ? (marginAtCap / base) * 100 : d.profit_at_cap_pct
+              return (
+                <>
+                  <Row
+                    label="Original Total"
+                    value={`${selectedCarrier.currency_code} ${d.original_grand_total.toLocaleString()}`}
+                    strikethrough
+                  />
+                  <Row
+                    label={`Discount (−${d.discount_pct.toFixed(1)}%)`}
+                    value={`−${selectedCarrier.currency_code} ${d.discount_amount.toLocaleString()}`}
+                    red
+                  />
+                  <Row
+                    label={`Margin at Cap (${marginAtCapPct.toFixed(1)}%)`}
+                    value={`${selectedCarrier.currency_code} ${marginAtCap.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                    highlight
+                  />
+                </>
+              )
+            })()}
             {/* Grand total */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
