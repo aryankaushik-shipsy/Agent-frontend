@@ -183,8 +183,11 @@ export function QuotePreview() {
             {selectedCarrier.discount && (() => {
               const d = selectedCarrier.discount
               const base = selectedCarrier.subtotal_before_markup ?? selectedCarrier.subtotal
-              const marginAtCap = d.adjusted_grand_total - base
-              const marginAtCapPct = base > 0 ? (marginAtCap / base) * 100 : d.profit_at_cap_pct
+              const vatMultiplier = 1 + (selectedCarrier.vat_pct ?? 0) / 100
+              // Strip VAT from the adjusted total before comparing against the pre-VAT cost base
+              const adjustedPreVat = d.adjusted_grand_total / vatMultiplier
+              const marginAtCap = adjustedPreVat - base
+              const marginAtCapPct = base > 0 ? (marginAtCap / base) * 100 : 0
               return (
                 <>
                   <Row
