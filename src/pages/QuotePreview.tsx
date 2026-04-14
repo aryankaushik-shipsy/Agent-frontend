@@ -179,6 +179,21 @@ export function QuotePreview() {
                 value={`${selectedCarrier.currency_code} ${selectedCarrier.vat_amount.toLocaleString()}`}
               />
             )}
+            {/* Discount section — only shown when customer sent a price cap */}
+            {selectedCarrier.discount && (
+              <>
+                <Row
+                  label="Original Total"
+                  value={`${selectedCarrier.currency_code} ${selectedCarrier.discount.original_grand_total.toLocaleString()}`}
+                  strikethrough
+                />
+                <Row
+                  label={`Discount (−${selectedCarrier.discount.discount_pct.toFixed(1)}%)`}
+                  value={`−${selectedCarrier.currency_code} ${selectedCarrier.discount.discount_amount.toLocaleString()}`}
+                  red
+                />
+              </>
+            )}
             {/* Grand total */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -187,7 +202,7 @@ export function QuotePreview() {
             }}>
               <span>Grand Total</span>
               <span style={{ color: 'var(--primary, #1d4ed8)' }}>
-                {selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}
+                {selectedCarrier.currency_code} {(selectedCarrier.discount?.adjusted_grand_total ?? selectedCarrier.grand_total).toLocaleString()}
               </span>
             </div>
           </div>
@@ -207,11 +222,17 @@ export function QuotePreview() {
   )
 }
 
-function Row({ label, value, bold, highlight }: { label: string; value: string; bold?: boolean; highlight?: boolean }) {
+function Row({ label, value, bold, highlight, strikethrough, red }: {
+  label: string; value: string; bold?: boolean; highlight?: boolean; strikethrough?: boolean; red?: boolean
+}) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderBottom: '1px solid var(--gray-50)' }}>
-      <span style={{ color: 'var(--gray-500)' }}>{label}</span>
-      <span style={{ fontWeight: bold ? 600 : 400, color: highlight ? 'var(--green-600, #16a34a)' : undefined }}>
+      <span style={{ color: red ? '#dc2626' : 'var(--gray-500)' }}>{label}</span>
+      <span style={{
+        fontWeight: bold ? 600 : 400,
+        color: highlight ? 'var(--green-600, #16a34a)' : red ? '#dc2626' : strikethrough ? 'var(--gray-400)' : undefined,
+        textDecoration: strikethrough ? 'line-through' : undefined,
+      }}>
         {value}
       </span>
     </div>
