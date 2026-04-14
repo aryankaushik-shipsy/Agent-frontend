@@ -110,10 +110,31 @@ export function QuoteSummarySidebar({
               <span className="qs-val">{selectedCarrier.currency_code} {selectedCarrier.vat_amount.toLocaleString()}</span>
             </div>
           )}
-          <div className="qs-total">
-            <span>Grand Total</span>
-            <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>
-          </div>
+          {selectedCarrier.discount ? (
+            <>
+              <div className="qs-row">
+                <span className="qs-label" style={{ color: 'var(--gray-400)' }}>Original Total</span>
+                <span className="qs-val" style={{ textDecoration: 'line-through', color: 'var(--gray-400)' }}>
+                  {selectedCarrier.currency_code} {selectedCarrier.discount.original_grand_total.toLocaleString()}
+                </span>
+              </div>
+              <div className="qs-row">
+                <span className="qs-label" style={{ color: '#dc2626' }}>Discount</span>
+                <span className="qs-val" style={{ color: '#dc2626' }}>
+                  −{selectedCarrier.discount.discount_pct.toFixed(1)}% ({selectedCarrier.currency_code} {selectedCarrier.discount.discount_amount.toLocaleString()})
+                </span>
+              </div>
+              <div className="qs-total">
+                <span>Grand Total</span>
+                <span>{selectedCarrier.currency_code} {selectedCarrier.discount.adjusted_grand_total.toLocaleString()}</span>
+              </div>
+            </>
+          ) : (
+            <div className="qs-total">
+              <span>Grand Total</span>
+              <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>
+            </div>
+          )}
         </>
       )}
 

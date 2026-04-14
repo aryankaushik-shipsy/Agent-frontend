@@ -16,6 +16,7 @@ interface Props {
 export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tierLabel, onClick }: Props) {
   const base = carrier.subtotal_before_markup ?? carrier.subtotal
   const hasMarkup = carrier.markup_pct != null && carrier.markup_amount != null
+  const discount = carrier.discount ?? null
 
   return (
     <div className={`carrier-card${selected ? ' selected' : ''}`} onClick={onClick}>
@@ -28,6 +29,7 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
             {isBestPrice  && <Badge variant="green"  dot={false}>Best Price</Badge>}
             {isBestMargin && <Badge variant="purple" dot={false}>Best Margin</Badge>}
             {tierLabel    && <Badge variant="blue"   dot={false}>{tierLabel} Tier</Badge>}
+            {discount     && <Badge variant="yellow" dot={false}>Discounted</Badge>}
             {carrier.transit_days != null && (
               <Badge variant="blue" dot={false}>{carrier.transit_days} day{carrier.transit_days !== 1 ? 's' : ''} transit</Badge>
             )}
@@ -40,13 +42,32 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
       </div>
 
       <div className="carrier-price-row">
-        <div className="carrier-total">
-          {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+          {discount ? (
+            <>
+              <div className="carrier-total">
+                {carrier.currency_code} {discount.adjusted_grand_total.toLocaleString()}
+              </div>
+              <div style={{ fontSize: 14, color: 'var(--gray-400)', textDecoration: 'line-through' }}>
+                {carrier.currency_code} {discount.original_grand_total.toLocaleString()}
+              </div>
+            </>
+          ) : (
+            <div className="carrier-total">
+              {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+            </div>
+          )}
         </div>
         <div className="carrier-currency">
           {base != null ? `Base: ${formatCurrency(base, carrier.currency_code)}` : ''}
         </div>
       </div>
+
+      {discount && (
+        <div style={{ fontSize: 12, color: '#dc2626', padding: '2px 0 6px', fontWeight: 500 }}>
+          Discount applied: −{discount.discount_pct.toFixed(1)}% ({carrier.currency_code} {discount.discount_amount.toLocaleString()}) · Cap: {carrier.currency_code} {discount.customer_cap.toLocaleString()}
+        </div>
+      )}
 
       {/* Markup / margin row */}
       {hasMarkup && (
@@ -68,7 +89,16 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
         ))}
         <div className="line-total line-label" style={{ gridColumn: '1/2', paddingTop: 6 }}>Grand Total</div>
         <div className="line-total line-val" style={{ paddingTop: 6 }}>
-          {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+          {discount ? (
+            <span>
+              <span style={{ textDecoration: 'line-through', color: 'var(--gray-400)', marginRight: 6, fontWeight: 400 }}>
+                {carrier.currency_code} {discount.original_grand_total.toLocaleString()}
+              </span>
+              {carrier.currency_code} {discount.adjusted_grand_total.toLocaleString()}
+            </span>
+          ) : (
+            `${carrier.currency_code} ${carrier.grand_total?.toLocaleString() ?? '—'}`
+          )}
         </div>
       </div>
     </div>
