@@ -4,7 +4,9 @@ import type { JobDetail } from '../types/job'
 // Reads full carrier data (with breakdown, markup, subtotal) from the
 // calculate_final_price task output — more complete than the intervention payload
 export function getCarriersFromTask(job: JobDetail): Carrier[] {
-  const task = job.tasks?.find((t) => t.title === 'calculate_final_price')
+  // Use the LAST matching task — calculate_final_price can be called twice when the
+  // customer sends a price cap, and the second call contains the discount-adjusted output.
+  const task = [...(job.tasks ?? [])].reverse().find((t) => t.title === 'calculate_final_price')
   if (!task?.output_json) return []
   const out = task.output_json as { results?: Carrier[] }
   return out.results ?? []

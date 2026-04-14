@@ -72,30 +72,32 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
   if (job.status === 'success') return { label: 'Resolved', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
 
+  // Forward-only pipeline: check from the most-advanced stage down to least-advanced.
+  // The first matching condition wins — a job can never fall back to an earlier label.
   if (job.status === 'interrupted') {
-    if (isAwaitingAck(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
-    const ratesDone = (job.tasks ?? []).some(
-      (t) => t.title?.toLowerCase().includes('get_rate') &&
-             (t.status === 'success' || t.status === 'completed')
-    )
-    if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
-    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
-    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
+    const hasPending = (job.interventions ?? []).some((i) => i.action_taken == null)
+    // Most advanced: quote was sent AND a new HITL has been triggered (price negotiation)
+    if (isEmailSent(job.tasks) && hasPending) return { label: 'Price Negotiation', variant: 'yellow' }
+    // Quote sent, no pending intervention — waiting on customer reply
+    if (isEmailSent(job.tasks)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
+    // Pre-send HITL stages
     if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
-    return { label: 'Interrupted', variant: 'yellow' }
+    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
+    return { label: 'Gathering Info', variant: 'yellow' }
   }
 
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
   if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
 
-  // running, no hitl — check currently running task title
+  // running, no hitl — check currently running task title (forward order)
   const runningTask = job.tasks?.find((t) => t.status === 'running')
   const title = runningTask?.title?.toLowerCase() ?? ''
-  if (title.includes('get_tier'))   return { label: 'Extracting Details', variant: 'blue' }
-  if (title.includes('get_rate'))   return { label: 'Fetching Rates', variant: 'blue' }
-  if (title.includes('calculate'))  return { label: 'Calculating Quote', variant: 'blue' }
   if (title.includes('generate'))   return { label: 'Generating Email', variant: 'blue' }
+  if (title.includes('calculate'))  return { label: 'Calculating Quote', variant: 'blue' }
+  if (title.includes('get_rate'))   return { label: 'Fetching Rates', variant: 'blue' }
+  if (title.includes('get_tier'))   return { label: 'Extracting Details', variant: 'blue' }
 
   return { label: 'Processing', variant: 'blue' }
 }

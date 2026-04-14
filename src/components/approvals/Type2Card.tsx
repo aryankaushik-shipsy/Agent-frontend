@@ -31,6 +31,7 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
   // Non-end actions mapped to carriers; end action becomes Reject button
   const carrierActions = intervention.interrupt.actions.filter(a => a.id !== 'end')
   const hasEndAction = intervention.interrupt.actions.some(a => a.id === 'end')
+  const hasDiscount = carrier?.adjusted_grand_total !== undefined
 
   return (
     <div className="approval-card">
@@ -41,6 +42,11 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
             <span style={{ marginLeft: 8 }}>
               <Badge variant="yellow" dot={false}>Select Carrier</Badge>
             </span>
+            {hasDiscount && (
+              <span style={{ marginLeft: 6 }}>
+                <Badge variant="yellow" dot={false}>Price Negotiation</Badge>
+              </span>
+            )}
             {carrier && isAboveThreshold(carrier.grand_total) && (
               <span style={{ marginLeft: 6 }}>
                 <Badge variant="red" dot={false}>Above $5K</Badge>
@@ -78,12 +84,35 @@ export function Type2Card({ job, intervention, payload, onAction, loading }: Pro
             <span className="approval-meta-label">Recommended Carrier</span>
             <span className="approval-meta-value">{carrier.carrier}</span>
           </div>
-          <div className="approval-meta-item">
-            <span className="approval-meta-label">Total Quote Value</span>
-            <span className="approval-meta-value" style={{ fontSize: 15, color: 'var(--dark)' }}>
-              {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
-            </span>
-          </div>
+          {hasDiscount ? (
+            <>
+              <div className="approval-meta-item">
+                <span className="approval-meta-label">Original Quote</span>
+                <span className="approval-meta-value" style={{ textDecoration: 'line-through', color: 'var(--gray-400)' }}>
+                  {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+                </span>
+              </div>
+              <div className="approval-meta-item">
+                <span className="approval-meta-label">Discount</span>
+                <span className="approval-meta-value" style={{ color: '#dc2626' }}>
+                  −{carrier.discount_pct?.toFixed(1)}% ({carrier.currency_code} {carrier.discount_amount?.toLocaleString() ?? '—'})
+                </span>
+              </div>
+              <div className="approval-meta-item">
+                <span className="approval-meta-label">Adjusted Total</span>
+                <span className="approval-meta-value" style={{ fontSize: 15, color: 'var(--dark)', fontWeight: 700 }}>
+                  {carrier.currency_code} {carrier.adjusted_grand_total?.toLocaleString() ?? '—'}
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="approval-meta-item">
+              <span className="approval-meta-label">Total Quote Value</span>
+              <span className="approval-meta-value" style={{ fontSize: 15, color: 'var(--dark)' }}>
+                {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
+              </span>
+            </div>
+          )}
           <div className="approval-meta-item">
             <span className="approval-meta-label">Base Cost</span>
             <span className="approval-meta-value">

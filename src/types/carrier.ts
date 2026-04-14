@@ -19,4 +19,10 @@ export interface Carrier {
   vat_amount?: number
   grand_total: number
   currency_code: string
+  // Populated when calculate_final_price is called with a customer price cap
+  is_profitable?: boolean
+  discount_amount?: number
+  discount_pct?: number
+  profit_at_cap_pct?: number
+  adjusted_grand_total?: number
 }
