@@ -4,11 +4,11 @@ import { formatDate } from '../../utils/time'
 import { getTierFromTasks, getCustomerName } from '../../utils/status'
 import type { JobDetail } from '../../types/job'
 import type { Carrier } from '../../types/carrier'
-import type { Type1Payload } from '../../types/hitl'
+import type { FormData } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
-  type1: Type1Payload
+  type1: FormData
   selectedCarrier: Carrier | undefined
   selectedIndex: number
   interventionId: number
@@ -22,9 +22,10 @@ export function QuoteSummarySidebar({
   interventionId, onConfirm, onReject, loading
 }: Props) {
   const navigate = useNavigate()
-  const item = type1.items[0]
+  const cv = type1.current_values
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
+  // actionId is passed through to QuotePreview for the legacy submit path
   const actionId = `carrier_${selectedIndex + 1}`
 
   function handleChooseCarrier() {
@@ -51,30 +52,30 @@ export function QuoteSummarySidebar({
       </div>
       <div className="qs-row">
         <span className="qs-label">Origin</span>
-        <span className="qs-val">{item.origin}</span>
+        <span className="qs-val">{String(cv.origin ?? '—')}</span>
       </div>
       <div className="qs-row">
         <span className="qs-label">Destination</span>
-        <span className="qs-val">{item.destination}</span>
+        <span className="qs-val">{String(cv.destination ?? '—')}</span>
       </div>
       <div className="qs-row">
         <span className="qs-label">Mode</span>
-        <span className="qs-val">{item.mode}</span>
+        <span className="qs-val">{String(cv.mode ?? '—')}</span>
       </div>
       <div className="qs-row">
         <span className="qs-label">Chargeable Weight</span>
-        <span className="qs-val">{item.weight_kg} kg</span>
+        <span className="qs-val">{cv.weight_kg != null ? `${cv.weight_kg} kg` : '—'}</span>
       </div>
-      {item.commodity && (
+      {cv.commodity != null && (
         <div className="qs-row">
           <span className="qs-label">Commodity</span>
-          <span className="qs-val">{item.commodity}</span>
+          <span className="qs-val">{String(cv.commodity)}</span>
         </div>
       )}
-      {item.incoterms && (
+      {cv.incoterms != null && (
         <div className="qs-row">
           <span className="qs-label">Incoterms</span>
-          <span className="qs-val">{item.incoterms}</span>
+          <span className="qs-val">{String(cv.incoterms)}</span>
         </div>
       )}
 

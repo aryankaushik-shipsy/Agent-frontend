@@ -10,7 +10,7 @@ import { getCustomerName } from '../utils/status'
 import { formatRelativeTime } from '../utils/time'
 import { getJobById } from '../api/jobs'
 import { getEmailThread, getEmailMessage } from '../api/thread'
-import { detectHitlType } from '../utils/hitl'
+import { detectHitlSubtype, getToolArgsData } from '../utils/hitl'
 import type { Job, JobDetail, Task } from '../types/job'
 import type { ThreadMessage } from '../api/thread'
 
@@ -309,9 +309,12 @@ function TrailView({ job: listJob, onBack }: { job: Job; onBack: () => void }) {
   // Extract the HTML from the Type 3 HITL intervention (the quote email body)
   const quoteEmailHtml = useMemo(() => {
     if (!jobDetail) return null
-    const type3 = (jobDetail.interventions ?? []).find((inv) => detectHitlType(inv) === 3)
+    const type3 = (jobDetail.interventions ?? []).find((inv) => detectHitlSubtype(inv) === 'type3')
     if (!type3) return null
-    const ar = type3.interrupt.details.ai_response
+    // Prefer new structured payload; fall back to legacy ai_response string
+    const toolArgs = getToolArgsData(type3)
+    if (toolArgs?.args?.message) return toolArgs.args.message
+    const ar = type3.interrupt?.details?.ai_response
     return typeof ar === 'string' ? ar : null
   }, [jobDetail])
 

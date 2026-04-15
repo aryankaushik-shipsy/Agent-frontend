@@ -1,46 +1,31 @@
 import type { Intervention } from '../types/job'
-import type { HitlType } from '../types/hitl'
+import type { HitlSubtype, FormData, CandidateSelectionData, ToolArgsData } from '../types/hitl'
 
-function resolveAiResponse(raw: string | Record<string, unknown>): Record<string, unknown> | string | null {
-  // Already a parsed object — use directly
-  if (typeof raw === 'object' && raw !== null) return raw
-  // String — try JSON.parse; return string on failure (Type 3 HTML)
-  if (typeof raw === 'string') {
-    try {
-      return JSON.parse(raw) as Record<string, unknown>
-    } catch {
-      return raw // raw HTML string
-    }
+export function detectHitlSubtype(intervention: Intervention): HitlSubtype | null {
+  const msg = intervention.interrupt_message
+  if (!msg) return null
+  const type = msg.interaction_type?.[0]
+  if (type === 'candidate_selection') return 'type2_step0'
+  if (type === 'tool_args') return 'type3'
+  if (type === 'form') {
+    return (msg.step_index == null || msg.step_index === 0) ? 'type1' : 'type2_step1'
   }
   return null
 }
 
-export function parseAiResponse<T>(intervention: Intervention): T | null {
-  const resolved = resolveAiResponse(intervention.interrupt.details.ai_response)
-  if (resolved === null || typeof resolved === 'string') return null
-  return resolved as T
+export function getFormData(intervention: Intervention): FormData | null {
+  return intervention.interrupt_message?.data?.form ?? null
 }
 
-export function detectHitlType(intervention: Intervention): HitlType | null {
-  const details = intervention?.interrupt?.details
-  if (!details) return null
-  const raw = details.ai_response
-  // No ai_response at all — check summary/message for an email-type card
-  if (raw == null) {
-    return details.summary ? 3 : null
-  }
-  const resolved = resolveAiResponse(raw)
-  if (resolved === null) return null
-  // String that failed JSON.parse → raw HTML → Type 3
-  if (typeof resolved === 'string') return 3
-  if ('items' in resolved) return 1
-  if ('carriers' in resolved) return 2
-  // Object but unrecognised shape — treat as Type 3 (show summary/raw text)
-  return 3
+export function getCandidateData(intervention: Intervention): CandidateSelectionData | null {
+  return intervention.interrupt_message?.data?.candidate_selection ?? null
+}
+
+export function getToolArgsData(intervention: Intervention): ToolArgsData | null {
+  return intervention.interrupt_message?.data?.tool_args ?? null
 }
 
 export function getPendingIntervention(interventions: Intervention[] | undefined): Intervention | undefined {
-  // "pending" = action_taken is null (API has no status field on interventions)
   return interventions?.find((i) => i.action_taken == null)
 }
 

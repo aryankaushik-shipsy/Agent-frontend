@@ -11,7 +11,7 @@ import { DateRangeFilter, presetToRange, type DatePreset, type DateRange } from 
 import { SearchBox } from '../components/pipeline/SearchBox'
 import { RefreshButton } from '../components/ui/RefreshButton'
 import { Button } from '../components/ui/Button'
-import { detectHitlType, getPendingIntervention } from '../utils/hitl'
+import { detectHitlSubtype, getPendingIntervention } from '../utils/hitl'
 import { isAwaitingAck } from '../utils/status'
 
 const PRESET_LABELS: Record<DatePreset, string> = {
@@ -142,13 +142,13 @@ export function Dashboard() {
 
   // Metric counts
   const getQuoteApprovalPending = allPendingDetails.filter(d => {
-    const type = detectHitlType(getPendingIntervention(d.interventions)!)
-    return type === 1 || type === 2
+    const subtype = detectHitlSubtype(getPendingIntervention(d.interventions)!)
+    return subtype === 'type1' || subtype === 'type2_step0' || subtype === 'type2_step1'
   }).length
 
   const sendQuoteApprovalPending = allPendingDetails.filter(d => {
-    const type = detectHitlType(getPendingIntervention(d.interventions)!)
-    return type === 3
+    const subtype = detectHitlSubtype(getPendingIntervention(d.interventions)!)
+    return subtype === 'type3'
   }).length
 
   const awaitingAckCount = interruptedDetails.filter(d => isAwaitingAck(d)).length

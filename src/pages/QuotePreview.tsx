@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { getJobById } from '../api/jobs'
-import { getPendingIntervention, detectHitlType } from '../utils/hitl'
+import { getPendingIntervention, detectHitlSubtype } from '../utils/hitl'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
 import { formatDate } from '../utils/time'
 import type { Carrier } from '../types/carrier'
-import type { Type1Payload } from '../types/hitl'
+import type { FormData } from '../types/hitl'
 
 interface PreviewState {
   actionId: string
   interventionId: number
   selectedCarrier: Carrier
-  type1: Type1Payload
+  type1: FormData
   tier: string
   customer: string
 }
@@ -39,7 +39,7 @@ export function QuotePreview() {
   }
 
   const { actionId, interventionId, selectedCarrier, type1, tier, customer } = state
-  const item = type1.items[0]
+  const cv = type1.current_values
 
   if (waitingForPreview) {
     return (
@@ -83,7 +83,7 @@ export function QuotePreview() {
       try {
         const job = await getJobById(jobIdNum)
         const pending = getPendingIntervention(job.interventions)
-        if (pending && detectHitlType(pending) === 3) {
+        if (pending && detectHitlSubtype(pending) === 'type3') {
           navigate(`/pipeline/${jobIdNum}/email-preview`)
           return
         }
@@ -130,7 +130,7 @@ export function QuotePreview() {
           <div style={{ fontSize: 11, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>
             Quote Email Preview
           </div>
-          <div style={{ fontWeight: 600, fontSize: 15 }}>Freight Quotation — {item.origin} → {item.destination}</div>
+          <div style={{ fontWeight: 600, fontSize: 15 }}>Freight Quotation — {String(cv.origin ?? '—')} → {String(cv.destination ?? '—')}</div>
           <div style={{ fontSize: 13, color: 'var(--gray-500)', marginTop: 2 }}>To: {customer}</div>
         </div>
 
@@ -148,11 +148,11 @@ export function QuotePreview() {
               <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                 Shipment
               </div>
-              <Row label="Origin" value={item.origin} />
-              <Row label="Destination" value={item.destination} />
-              <Row label="Mode" value={item.mode} />
-              <Row label="Weight" value={`${item.weight_kg} kg`} />
-              {item.date && <Row label="Date" value={formatDate(item.date)} />}
+              <Row label="Origin" value={String(cv.origin ?? '—')} />
+              <Row label="Destination" value={String(cv.destination ?? '—')} />
+              <Row label="Mode" value={String(cv.mode ?? '—')} />
+              <Row label="Weight" value={cv.weight_kg != null ? `${cv.weight_kg} kg` : '—'} />
+              {cv.date != null && <Row label="Date" value={formatDate(String(cv.date))} />}
             </section>
           </div>
 

@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
+import type { HITLActionRequest } from '../api/hitl'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
 
@@ -15,10 +16,10 @@ export function ApprovalDetail() {
   const [loadingId, setLoadingId] = useState<number | null>(null)
   const [done, setDone] = useState(false)
 
-  async function handleAction(interventionId: number, action: string) {
+  async function handleAction(interventionId: number, body: HITLActionRequest) {
     setLoadingId(interventionId)
     try {
-      await mutateAsync({ id: interventionId, action })
+      await mutateAsync({ id: interventionId, ...body })
       queryClient.invalidateQueries({ queryKey: ['job', job?.id] })
       setDone(true)
     } finally {

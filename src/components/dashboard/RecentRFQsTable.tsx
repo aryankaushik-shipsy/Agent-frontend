@@ -1,11 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
-import { deriveJobStatus, getShipmentRow, getTraceReference } from '../../utils/status'
-import { parseAiResponse } from '../../utils/hitl'
+import { deriveJobStatus, getShipmentRow, getShipmentFromHitl, getTraceReference } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job, JobDetail } from '../../types/job'
-import type { Type1Payload } from '../../types/hitl'
 import type { BadgeVariant } from '../../utils/status'
 
 interface Props {
@@ -80,20 +78,13 @@ export function RecentRFQsTable({ jobs, loading, pendingIds, searchQuery = '' }:
               route  = `${shipment.origin} → ${shipment.destination}`
               mode   = shipment.mode ?? '—'
               weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
-            } else if ('interventions' in job && job.interventions?.length) {
-              // Fallback: extract from HITL Type 1 payload (ai_response.items[0])
-              const type1 = job.interventions.find((i) => {
-                const p = parseAiResponse<Record<string, unknown>>(i)
-                return p && 'items' in p
-              })
-              if (type1) {
-                const payload = parseAiResponse<Type1Payload>(type1)
-                if (payload?.items?.[0]) {
-                  const item = payload.items[0]
-                  route  = `${item.origin} → ${item.destination}`
-                  mode   = item.mode ?? '—'
-                  weight = item.weight_kg != null ? `${item.weight_kg} kg` : '—'
-                }
+            } else if ('interventions' in job) {
+              // Fallback: extract from Type 1 HITL form current_values
+              const hitlShipment = getShipmentFromHitl(job as JobDetail)
+              if (hitlShipment?.origin && hitlShipment?.destination) {
+                route  = `${hitlShipment.origin} → ${hitlShipment.destination}`
+                mode   = hitlShipment.mode ?? '—'
+                weight = hitlShipment.weight_kg != null ? `${hitlShipment.weight_kg} kg` : '—'
               }
             }
 

@@ -1,5 +1,5 @@
 import type { JobDetail, JobStatus, Task } from '../types/job'
-import type { HitlType } from '../types/hitl'
+import type { HitlSubtype } from '../types/hitl'
 
 export type BadgeVariant = 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'gray'
 
@@ -40,7 +40,7 @@ export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean 
 
 export function deriveJobStatus(
   status: JobStatus,
-  hitlType: HitlType | null,
+  subtype: HitlSubtype | null,
   tasks?: Task[]
 ): StatusResult {
   if (status === 'queued') return { label: 'Queued', variant: 'gray' }
@@ -54,20 +54,20 @@ export function deriveJobStatus(
              (t.status === 'success' || t.status === 'completed')
     )
     if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
-    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
-    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
-    if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
+    if (subtype === 'type1') return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
+    if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
-  // running — check HITL type
-  if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
-  if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
-  if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
+  // running — check HITL subtype
+  if (subtype === 'type1') return { label: 'Pending — Confirm Shipment', variant: 'purple' }
+  if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
   return { label: 'Processing', variant: 'blue' }
 }
 
-export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): StatusResult {
+export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null): StatusResult {
   if (job.status === 'queued') return { label: 'Queued', variant: 'gray' }
   if (job.status === 'success') return { label: 'Resolved', variant: 'green' }
   if (job.status === 'failed') return { label: 'Failed', variant: 'red' }
@@ -81,15 +81,15 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
     // Quote sent, no pending intervention — waiting on customer reply
     if (isEmailSent(job.tasks)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     // Pre-send HITL stages
-    if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
-    if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
-    if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
+    if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
+    if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type1') return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
     return { label: 'Gathering Info', variant: 'yellow' }
   }
 
-  if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
-  if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
-  if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
+  if (subtype === 'type1') return { label: 'Pending — Confirm Shipment', variant: 'purple' }
+  if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
 
   // running, no hitl — check currently running task title (forward order)
   const runningTask = job.tasks?.find((t) => t.status === 'running')
@@ -124,6 +124,34 @@ export function getTraceReference(
 }
 
 type ShipmentRow = { origin?: string; destination?: string; mode?: string; weight_kg?: number; incoterms?: string; commodity?: string }
+
+/**
+ * Returns shipment fields from the Type 1 HITL record's form current_values.
+ * This is the authoritative source per dashboard-scope-v2.md §1.2 — the form
+ * data reflects reviewer-corrected values written back to state.
+ * Returns null if no Type 1 record exists yet (job still in extraction phase).
+ */
+export function getShipmentFromHitl(job: JobDetail): ShipmentRow | null {
+  for (const intervention of job.interventions ?? []) {
+    const msg = intervention.interrupt_message
+    if (!msg) continue
+    const type = msg.interaction_type?.[0]
+    const stepIndex = msg.step_index
+    if (type === 'form' && (stepIndex == null || stepIndex === 0)) {
+      const cv = msg.data?.form?.current_values
+      if (!cv) continue
+      return {
+        origin: cv.origin as string | undefined,
+        destination: cv.destination as string | undefined,
+        mode: cv.mode as string | undefined,
+        weight_kg: cv.weight_kg as number | undefined,
+        incoterms: cv.incoterms as string | undefined,
+        commodity: cv.commodity as string | undefined,
+      }
+    }
+  }
+  return null
+}
 
 export function getShipmentRow(job: { input_json?: { data?: unknown[] } | null }): ShipmentRow | null {
   const row = job?.input_json?.data?.[0]

@@ -1,15 +1,15 @@
 import type { JobDetail } from '../../types/job'
-import type { Type1Payload } from '../../types/hitl'
+import type { FormData } from '../../types/hitl'
 import { getTierFromTasks, getCustomerName } from '../../utils/status'
 
 interface Props {
   job: JobDetail
-  type1: Type1Payload
+  type1: FormData
   markupPct?: number
 }
 
 export function ContextBanner({ job, type1, markupPct }: Props) {
-  const item = type1.items[0]
+  const cv = type1.current_values
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
 
@@ -23,9 +23,9 @@ export function ContextBanner({ job, type1, markupPct }: Props) {
           #RFQ-{job.id} · {customer}
         </div>
         <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 4, fontSize: 13 }}>
-          <span>Route: <strong>{item.origin} → {item.destination}</strong></span>
-          <span>Mode: <strong>{item.mode}</strong></span>
-          <span>Weight: <strong>{item.weight_kg} kg</strong></span>
+          <span>Route: <strong>{String(cv.origin ?? '—')} → {String(cv.destination ?? '—')}</strong></span>
+          <span>Mode: <strong>{String(cv.mode ?? '—')}</strong></span>
+          <span>Weight: <strong>{cv.weight_kg != null ? `${cv.weight_kg} kg` : '—'}</strong></span>
           {tier !== '—' && <span>Tier: <strong>{tier}</strong></span>}
           {markupPct != null && <span>Markup: <strong>{markupPct}%</strong></span>}
         </div>

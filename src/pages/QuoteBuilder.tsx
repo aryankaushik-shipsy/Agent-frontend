@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { parseAiResponse, getPendingIntervention } from '../utils/hitl'
+import { getFormData, getCandidateData, getPendingIntervention } from '../utils/hitl'
 import { getTierFromTasks } from '../utils/status'
 import { findBestPriceIndex, findBestMarginIndex, getCarriersFromTask } from '../utils/carrier'
 import { getTierInfo } from '../utils/status'
@@ -12,7 +12,7 @@ import { MarginValidation } from '../components/quote-builder/MarginValidation'
 import { AIRecommendation } from '../components/quote-builder/AIRecommendation'
 import { QuoteSummarySidebar } from '../components/quote-builder/QuoteSummarySidebar'
 import { Spinner } from '../components/ui/Spinner'
-import type { Type1Payload, Type2Payload } from '../types/hitl'
+import type { FormData } from '../types/hitl'
 
 export function QuoteBuilder() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -28,16 +28,18 @@ export function QuoteBuilder() {
     return <div style={{ padding: 40 }}>Job not found.</div>
   }
 
-  // Find interventions
+  // Find Type 1 intervention (shipment form, step_index absent or 0)
   const type1Int = (job.interventions ?? []).find((i) => {
-    const p = parseAiResponse<Record<string, unknown>>(i)
-    return p && 'items' in p
+    const msg = i.interrupt_message
+    return msg?.interaction_type?.[0] === 'form' && (msg.step_index == null || msg.step_index === 0)
   })
-  const type2Int = getPendingIntervention(job.interventions)
-  const type1 = type1Int ? parseAiResponse<Type1Payload>(type1Int) : null
-  const type2 = type2Int ? parseAiResponse<Type2Payload>(type2Int) : null
+  const type1: FormData | null = type1Int ? getFormData(type1Int) : null
 
-  if (!type1 || !type2 || !type2Int) {
+  // Pending intervention (Type 2 carrier selection)
+  const type2Int = getPendingIntervention(job.interventions)
+  const candidateData = type2Int ? getCandidateData(type2Int) : null
+
+  if (!type1 || !type2Int) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Carrier Selection stage.</div>
@@ -45,11 +47,12 @@ export function QuoteBuilder() {
     )
   }
 
-  // Prefer full carrier data from calculate_final_price task (has breakdown,
-  // markup, subtotal). Fall back to intervention payload carriers if task missing.
-  const carriers = getCarriersFromTask(job).length > 0
-    ? getCarriersFromTask(job)
-    : type2.carriers
+  // Prefer full carrier data from calculate_final_price task (has breakdown, markup, subtotal).
+  // Fall back to candidate_selection options from HITL payload.
+  const taskCarriers = getCarriersFromTask(job)
+  const carriers = taskCarriers.length > 0
+    ? taskCarriers
+    : (candidateData?.options ?? [])
   const bestIdx = findBestPriceIndex(carriers)
   const bestMarginIdx = findBestMarginIndex(carriers)
   const selectedCarrier = carriers[selectedIdx]
@@ -82,7 +85,7 @@ export function QuoteBuilder() {
           ))}
 
           <MarginValidation carrier={selectedCarrier} tier={tier} />
-          <AIRecommendation text={type2Int.interrupt.recommendation} />
+          <AIRecommendation text={type2Int.interrupt_message?.context?.recommendation ?? type2Int.interrupt?.recommendation} />
         </div>
 
         <QuoteSummarySidebar

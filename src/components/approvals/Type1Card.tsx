@@ -1,23 +1,59 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
-import { formatRelativeTime, formatDate } from '../../utils/time'
+import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
+import { getFormData } from '../../utils/hitl'
 import type { JobDetail, Intervention } from '../../types/job'
-import type { Type1Payload } from '../../types/hitl'
+import type { HITLActionRequest } from '../../api/hitl'
 
 interface Props {
   job: JobDetail
   intervention: Intervention
-  payload: Type1Payload
-  onAction: (action: string) => void
+  onAction: (body: HITLActionRequest) => void
   loading: boolean
 }
 
-export function Type1Card({ job, intervention, payload, onAction, loading }: Props) {
+export function Type1Card({ job, intervention, onAction, loading }: Props) {
   const navigate = useNavigate()
-  const item = payload.items[0]
   const customer = getCustomerName(job)
+  const form = getFormData(intervention)
+  const summary = intervention.interrupt_message?.context?.summary
+
+  const [values, setValues] = useState<Record<string, unknown>>(
+    () => ({ ...(form?.current_values ?? {}) })
+  )
+
+  if (!form) return null
+
+  function handleChange(key: string, value: unknown) {
+    setValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  function computeEdits(): Record<string, unknown> {
+    const edits: Record<string, unknown> = {}
+    for (const field of form!.schema) {
+      if (!field.editable) continue
+      const original = form!.current_values[field.key]
+      const current = values[field.key]
+      if (current !== original) edits[field.key] = current
+    }
+    return edits
+  }
+
+  function handleConfirm() {
+    onAction({ action: 'approved', edited_values: computeEdits() })
+  }
+
+  function handleCorrect() {
+    onAction({ action: 'correct_and_rerun', edited_values: computeEdits() })
+  }
+
+  const origin = (values.origin as string) ?? '—'
+  const destination = (values.destination as string) ?? '—'
+  const mode = (values.mode as string) ?? '—'
+  const weight = values.weight_kg != null ? `${values.weight_kg} kg` : '—'
 
   return (
     <div className="approval-card type-confirm">
@@ -30,7 +66,7 @@ export function Type1Card({ job, intervention, payload, onAction, loading }: Pro
             </span>
           </div>
           <div className="approval-sub">
-            {customer} · {item.origin} → {item.destination} · {item.mode} · {item.weight_kg} kg
+            {customer} · {origin} → {destination} · {mode} · {weight}
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
@@ -50,43 +86,92 @@ export function Type1Card({ job, intervention, payload, onAction, loading }: Pro
         </div>
       </div>
 
-      <div className="approval-meta">
-        <div className="approval-meta-item">
-          <span className="approval-meta-label">Shipment Date</span>
-          <span className="approval-meta-value">{formatDate(item.date)}</span>
-        </div>
-        <div className="approval-meta-item">
-          <span className="approval-meta-label">Dimensions</span>
-          <span className="approval-meta-value">{item.length_cm} × {item.width_cm} × {item.height_cm} cm</span>
-        </div>
-        <div className="approval-meta-item">
-          <span className="approval-meta-label">Pieces</span>
-          <span className="approval-meta-value">{item.number_of_boxes}</span>
-        </div>
-        {item.commodity && (
-          <div className="approval-meta-item">
-            <span className="approval-meta-label">Commodity</span>
-            <span className="approval-meta-value">{item.commodity}</span>
-          </div>
-        )}
-        {item.incoterms && (
-          <div className="approval-meta-item">
-            <span className="approval-meta-label">Incoterms</span>
-            <span className="approval-meta-value">{item.incoterms}</span>
-          </div>
-        )}
+      <div className="hitl-form">
+        {form.schema.map((field) => {
+          const value = values[field.key]
+          const options = form.resolved_options[field.key]
+
+          if (!field.editable) {
+            return (
+              <div key={field.key} className="hitl-form-row">
+                <label className="hitl-form-label">{field.label}</label>
+                <span className="hitl-form-static">
+                  {value != null ? String(value) : '—'}
+                </span>
+              </div>
+            )
+          }
+
+          if (field.type === 'select' && options) {
+            return (
+              <div key={field.key} className="hitl-form-row">
+                <label className="hitl-form-label">{field.label}</label>
+                <select
+                  className="hitl-form-select"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                >
+                  <option value="">—</option>
+                  {options.map((opt) => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+            )
+          }
+
+          if (field.type === 'number') {
+            return (
+              <div key={field.key} className="hitl-form-row">
+                <label className="hitl-form-label">{field.label}</label>
+                <input
+                  className="hitl-form-input"
+                  type="number"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value === '' ? null : Number(e.target.value))}
+                />
+              </div>
+            )
+          }
+
+          if (field.type === 'date') {
+            return (
+              <div key={field.key} className="hitl-form-row">
+                <label className="hitl-form-label">{field.label}</label>
+                <input
+                  className="hitl-form-input"
+                  type="date"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                />
+              </div>
+            )
+          }
+
+          return (
+            <div key={field.key} className="hitl-form-row">
+              <label className="hitl-form-label">{field.label}</label>
+              <input
+                className="hitl-form-input"
+                type="text"
+                value={value != null ? String(value) : ''}
+                onChange={(e) => handleChange(field.key, e.target.value)}
+              />
+            </div>
+          )
+        })}
       </div>
 
-      {intervention.interrupt.details.summary && (
-        <div className="approval-rec">{intervention.interrupt.details.summary}</div>
+      {summary && (
+        <div className="approval-rec">{summary}</div>
       )}
 
       <div className="approval-actions">
-        <Button variant="green" loading={loading} onClick={() => onAction('get_rate')}>
-          Confirm & Fetch Rates
+        <Button variant="green" loading={loading} onClick={handleConfirm}>
+          Confirm &amp; Fetch Rates
         </Button>
-        <Button variant="red-outline" disabled={loading} onClick={() => onAction('end')}>
-          Manual Resolution
+        <Button variant="red-outline" disabled={loading} onClick={handleCorrect}>
+          Correct &amp; Re-extract
         </Button>
       </div>
     </div>

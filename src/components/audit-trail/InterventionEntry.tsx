@@ -1,11 +1,13 @@
-import { detectHitlType } from '../../utils/hitl'
+import { detectHitlSubtype } from '../../utils/hitl'
 import { formatRelativeTime } from '../../utils/time'
 import type { Intervention } from '../../types/job'
+import type { HitlSubtype } from '../../types/hitl'
 
-const TYPE_LABELS: Record<number, string> = {
-  1: 'Shipment Confirmation',
-  2: 'Carrier Selection',
-  3: 'Email Preview',
+const TYPE_LABELS: Record<HitlSubtype, string> = {
+  type1: 'Shipment Confirmation',
+  type2_step0: 'Carrier Selection',
+  type2_step1: 'Price Review',
+  type3: 'Email Preview',
 }
 
 interface Props {
@@ -13,8 +15,8 @@ interface Props {
 }
 
 export function InterventionEntry({ intervention }: Props) {
-  const hitlType = detectHitlType(intervention)
-  const typeLabel = hitlType ? TYPE_LABELS[hitlType] : 'HITL Intervention'
+  const subtype = detectHitlSubtype(intervention)
+  const typeLabel = subtype ? TYPE_LABELS[subtype] : 'HITL Intervention'
 
   // completed = action_taken is set; pending = action_taken is null
   const isCompleted = intervention.action_taken != null
@@ -23,8 +25,11 @@ export function InterventionEntry({ intervention }: Props) {
     avatarClass = intervention.action_taken === 'end' ? 'tl-avatar-red' : 'tl-avatar-green'
   }
 
-  const conf = intervention.interrupt.confidence
-  const confPct = conf != null ? `${Math.round(conf * 100)}%` : null
+  // Prefer new structured payload; fall back to legacy interrupt fields
+  const confidence = intervention.interrupt_message?.context?.confidence_score ?? intervention.interrupt?.confidence
+  const confPct = confidence != null ? `${Math.round(confidence * 100)}%` : null
+  const recommendation = intervention.interrupt_message?.context?.recommendation ?? intervention.interrupt?.recommendation
+  const question = intervention.interrupt?.question
 
   return (
     <div className="timeline-item">
@@ -33,13 +38,13 @@ export function InterventionEntry({ intervention }: Props) {
         <div className="tl-header">
           <div className="tl-title">{typeLabel}</div>
         </div>
-        {intervention.interrupt.question && (
+        {question && (
           <div className="tl-summary" style={{ fontStyle: 'italic' }}>
-            {intervention.interrupt.question}
+            {question}
           </div>
         )}
-        {intervention.interrupt.recommendation && (
-          <div className="tl-summary">{intervention.interrupt.recommendation}</div>
+        {recommendation && (
+          <div className="tl-summary">{recommendation}</div>
         )}
         <div className="tl-meta">
           {confPct && <span>Confidence: {confPct}</span>}

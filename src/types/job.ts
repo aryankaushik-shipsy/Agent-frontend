@@ -1,3 +1,5 @@
+import type { HITLInterruptPayload } from './hitl'
+
 export type JobStatus = 'queued' | 'running' | 'success' | 'failed' | 'interrupted'
 
 export interface InfoField {
@@ -61,7 +63,9 @@ export interface Interrupt {
 
 export interface Intervention {
   id: number
-  // No "status" field — pending = action_taken == null, completed = action_taken is set
+  // Structured payload from the policy engine — use this for all new HITL rendering
+  interrupt_message?: HITLInterruptPayload
+  // Legacy interrupt shape — kept for backward compat with pre-policy-upgrade jobs
   interrupt: Interrupt
   action_taken?: string | null
   action_taken_by_user_name?: string | null

@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submitHitlAction } from '../api/hitl'
+import type { HITLActionRequest } from '../api/hitl'
 import { useToast } from './useToast'
 
 export function useHitlAction() {
@@ -7,8 +8,8 @@ export function useHitlAction() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: ({ id, action }: { id: number; action: string }) =>
-      submitHitlAction(id, action),
+    mutationFn: ({ id, ...body }: { id: number } & HITLActionRequest) =>
+      submitHitlAction(id, body),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
       queryClient.invalidateQueries({ queryKey: ['insights'] })

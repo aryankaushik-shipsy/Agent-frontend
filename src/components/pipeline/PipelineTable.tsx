@@ -2,12 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { Spinner } from '../ui/Spinner'
 import { Button } from '../ui/Button'
-import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
-import { derivePipelineStage, getCustomerName, getShipmentRow, getTraceReference } from '../../utils/status'
+import { detectHitlSubtype, getPendingIntervention } from '../../utils/hitl'
+import { derivePipelineStage, getCustomerName, getShipmentFromHitl, getShipmentRow, getTraceReference } from '../../utils/status'
 import { formatRelativeTime } from '../../utils/time'
 import type { Job } from '../../types/job'
 import type { JobDetail } from '../../types/job'
-import type { Type1Payload } from '../../types/hitl'
+import type { HitlSubtype } from '../../types/hitl'
 import type { BadgeVariant } from '../../utils/status'
 
 interface Props {
@@ -23,36 +23,30 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
   const rows = jobs.map((job) => {
     const detail = details.find((d) => d.id === job.id)
     const pending = detail ? getPendingIntervention(detail.interventions) : undefined
-    const hitlType = pending ? detectHitlType(pending) : null
-    const stage = detail ? derivePipelineStage(detail, hitlType) : { label: 'Loading…', variant: 'gray' as BadgeVariant }
+    const subtype = pending ? detectHitlSubtype(pending) : null
+    const stage = detail ? derivePipelineStage(detail, subtype) : { label: 'Loading…', variant: 'gray' as BadgeVariant }
 
     let customer = '—', route = '—', mode = '—', weight = '—'
     let commodity: string | undefined, incoterms: string | undefined
     customer = getCustomerName(detail ?? job)
-    // Primary: input_json.data[0] (in list response, no detail fetch needed)
-    const shipment = getShipmentRow(job)
-    if (shipment?.origin && shipment?.destination) {
-      route = `${shipment.origin} → ${shipment.destination}`
-      mode = shipment.mode ?? '—'
-      weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
-      commodity = shipment.commodity
-      incoterms = shipment.incoterms
-    } else if (detail) {
-      // Fallback: HITL Type 1 payload
-      const type1 = (detail.interventions ?? []).find((i) => {
-        const p = parseAiResponse<Record<string, unknown>>(i)
-        return p && 'items' in p
-      })
-      if (type1) {
-        const payload = parseAiResponse<Type1Payload>(type1)
-        if (payload?.items[0]) {
-          const item = payload.items[0]
-          route = `${item.origin} → ${item.destination}`
-          mode = item.mode
-          weight = `${item.weight_kg} kg`
-          commodity = item.commodity
-          incoterms = item.incoterms
-        }
+
+    // Primary source: Type 1 HITL form current_values (authoritative per v2 spec)
+    const hitlShipment = detail ? getShipmentFromHitl(detail) : null
+    if (hitlShipment?.origin && hitlShipment?.destination) {
+      route = `${hitlShipment.origin} → ${hitlShipment.destination}`
+      mode = hitlShipment.mode ?? '—'
+      weight = hitlShipment.weight_kg != null ? `${hitlShipment.weight_kg} kg` : '—'
+      commodity = hitlShipment.commodity
+      incoterms = hitlShipment.incoterms
+    } else {
+      // Fallback: input_json.data[0] (pre-policy-upgrade jobs or no Type 1 yet)
+      const shipment = getShipmentRow(job)
+      if (shipment?.origin && shipment?.destination) {
+        route = `${shipment.origin} → ${shipment.destination}`
+        mode = shipment.mode ?? '—'
+        weight = shipment.weight_kg != null ? `${shipment.weight_kg} kg` : '—'
+        commodity = shipment.commodity
+        incoterms = shipment.incoterms
       }
     }
 
@@ -62,7 +56,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
     const latestTaskKey = latestTask?.node_key ?? latestTask?.title ?? '—'
 
     const traceRef = getTraceReference(detail ?? job)
-    return { job, detail, hitlType, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey, traceRef }
+    return { job, detail, subtype, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey, traceRef }
   }).filter((row) => {
     if (!searchQuery) return true
     const q = searchQuery.trim()
@@ -101,7 +95,7 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
               </td>
             </tr>
           )}
-          {rows.map(({ job, hitlType, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey }) => (
+          {rows.map(({ job, subtype, stage, customer, route, mode, weight, commodity, incoterms, latestTaskKey }) => (
             <tr key={job.id}>
               <td className="td-bold td-mono">#RFQ-{job.id}</td>
               <td style={{ maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -129,19 +123,19 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                 {formatRelativeTime(job.created_at)}
               </td>
               <td>
-                {hitlType === 1 && (
+                {subtype === 'type1' && (
                   <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     Review
                   </Button>
                 )}
-                {hitlType === 2 && (
+                {(subtype === 'type2_step0' || subtype === 'type2_step1') && (
                   <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Quote
                   </Button>
                 )}
-                {hitlType === 3 && (
-                  <Button variant="ghost" onClick={() => navigate(`/pipeline/${job.id}/email-preview`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Preview Email
+                {subtype === 'type3' && (
+                  <Button variant="ghost" onClick={() => navigate(`/approvals`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    Review Email
                   </Button>
                 )}
                 {job.status === 'success' && (
@@ -149,11 +143,11 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                     View Trail
                   </Button>
                 )}
-                {(job.status === 'running' || job.status === 'queued') && !hitlType && (
+                {(job.status === 'running' || job.status === 'queued') && !subtype && (
                   <Spinner size="sm" />
                 )}
                 {/* Fallback for interrupted / failed / awaiting-ack */}
-                {!hitlType && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
+                {!subtype && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Trail
                   </Button>

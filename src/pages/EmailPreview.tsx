@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, detectHitlType } from '../utils/hitl'
+import { getPendingIntervention, detectHitlSubtype } from '../utils/hitl'
 import { getCustomerName, getInfoField, isPlatformJob } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
@@ -48,9 +48,12 @@ export function EmailPreview() {
         if (!mounted.current) return
 
         const pending = getPendingIntervention(data.interventions)
-        const hitlType = pending ? detectHitlType(pending) : null
-        const hasEmailAction = pending?.interrupt.actions.some((a) => a.id === 'send_email') ?? false
-        const ready = pending && (hitlType === 3 || hasEmailAction)
+        const subtype = pending ? detectHitlSubtype(pending) : null
+        const hasEmailAction =
+          pending?.interrupt_message?.actions?.some((a) => a.id === 'approved') ??
+          pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ??
+          false
+        const ready = pending && (subtype === 'type3' || hasEmailAction)
 
         if (ready) {
           if (tickRef.current) clearInterval(tickRef.current)
@@ -125,10 +128,13 @@ export function EmailPreview() {
   if (!job) return null
 
   const pending = getPendingIntervention(job.interventions)
-  const hitlType = pending ? detectHitlType(pending) : null
-  const hasEmailAction = pending?.interrupt.actions.some((a) => a.id === 'send_email') ?? false
+  const subtype = pending ? detectHitlSubtype(pending) : null
+  const hasEmailAction =
+    pending?.interrupt_message?.actions?.some((a) => a.id === 'approved') ??
+    pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ??
+    false
 
-  if (timedOut || !pending || (hitlType !== 3 && !hasEmailAction)) {
+  if (timedOut || !pending || (subtype !== 'type3' && !hasEmailAction)) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Email Preview stage.</div>
@@ -136,9 +142,13 @@ export function EmailPreview() {
     )
   }
 
-  const emailHtml = typeof pending.interrupt.details.ai_response === 'string'
-    ? pending.interrupt.details.ai_response : ''
-  const summary   = pending.interrupt.details.summary
+  // Prefer new structured payload; fall back to legacy ai_response
+  const emailHtml =
+    pending.interrupt_message?.data?.tool_args?.args?.message ??
+    (typeof pending.interrupt?.details?.ai_response === 'string' ? pending.interrupt.details.ai_response : '')
+  const summary =
+    pending.interrupt_message?.context?.summary ??
+    pending.interrupt?.details?.summary
   const platform  = isPlatformJob(job)
   const customer  = getCustomerName(job)
   // Show actual sender email in "To:" (stored as info label "address" by n8n)

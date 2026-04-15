@@ -3,7 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, detectHitlType } from '../utils/hitl'
+import { getPendingIntervention } from '../utils/hitl'
+import type { HITLActionRequest } from '../api/hitl'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
 import { Spinner } from '../components/ui/Spinner'
@@ -28,10 +29,10 @@ export function HITLApprovals() {
   const [loadingId, setLoadingId] = useState<number | null>(null)
   const [removedIds, setRemovedIds] = useState<Set<number>>(new Set())
 
-  async function handleAction(interventionId: number, action: string) {
+  async function handleAction(interventionId: number, body: HITLActionRequest) {
     setLoadingId(interventionId)
     try {
-      await mutateAsync({ id: interventionId, action })
+      await mutateAsync({ id: interventionId, ...body })
       // optimistically remove the job card
       const jobDetail = details.find((d) =>
         (d.interventions ?? []).some((i) => i.id === interventionId)
@@ -46,11 +47,11 @@ export function HITLApprovals() {
     }
   }
 
-  // Email preview (Type 3) is handled inline in the QuotePreview flow — exclude here
+  // Show all pending intervention types — Type 3 email review is now handled inline
   const visibleDetails = details.filter((d) => {
     if (removedIds.has(d.id)) return false
     const pending = getPendingIntervention(d.interventions)
-    return pending ? detectHitlType(pending) !== 3 : false
+    return pending != null
   })
   const loading = jobsLoading || detailsLoading
 

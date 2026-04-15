@@ -1,13 +1,13 @@
-import { detectHitlType, getPendingIntervention, parseAiResponse } from '../../utils/hitl'
+import { detectHitlSubtype, getPendingIntervention } from '../../utils/hitl'
 import { Type1Card } from './Type1Card'
 import { Type2Card } from './Type2Card'
 import { Type3Card } from './Type3Card'
 import type { JobDetail } from '../../types/job'
-import type { Type1Payload, Type2Payload } from '../../types/hitl'
+import type { HITLActionRequest } from '../../api/hitl'
 
 interface Props {
   job: JobDetail
-  onAction: (interventionId: number, action: string) => void
+  onAction: (interventionId: number, body: HITLActionRequest) => void
   loadingId: number | null
 }
 
@@ -15,43 +15,40 @@ export function ApprovalCardRouter({ job, onAction, loadingId }: Props) {
   const pending = getPendingIntervention(job.interventions)
   if (!pending) return null
 
-  const hitlType = detectHitlType(pending)
+  const subtype = detectHitlSubtype(pending)
   const loading = loadingId === pending.id
 
-  if (hitlType === 1) {
-    const payload = parseAiResponse<Type1Payload>(pending)
-    if (!payload) return null
+  const handleAction = (body: HITLActionRequest) => onAction(pending.id, body)
+
+  if (subtype === 'type1') {
     return (
       <Type1Card
         job={job}
         intervention={pending}
-        payload={payload}
-        onAction={(action) => onAction(pending.id, action)}
+        onAction={handleAction}
         loading={loading}
       />
     )
   }
 
-  if (hitlType === 2) {
-    const payload = parseAiResponse<Type2Payload>(pending)
-    if (!payload) return null
+  if (subtype === 'type2_step0' || subtype === 'type2_step1') {
     return (
       <Type2Card
         job={job}
         intervention={pending}
-        payload={payload}
-        onAction={(action) => onAction(pending.id, action)}
+        subtype={subtype}
+        onAction={handleAction}
         loading={loading}
       />
     )
   }
 
-  if (hitlType === 3) {
+  if (subtype === 'type3') {
     return (
       <Type3Card
         job={job}
         intervention={pending}
-        onAction={(action) => onAction(pending.id, action)}
+        onAction={handleAction}
         loading={loading}
       />
     )
