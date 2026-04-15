@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Freight AI – Quotation Dashboard</title>
+  <style>
+    :root {
+      --red: #e8002d;
+      --red-light: #fff0f3;
+      --dark: #111827;
+      --gray-900: #1f2937;
+      --gray-800: #374151;
+      --gray-700: #4b5563;
+      --gray-600: #6b7280;
+      --gray-400: #9ca3af;
+      --gray-300: #d1d5db;
+      --gray-200: #e5e7eb;
+      --gray-100: #f3f4f6;
+      --gray-50:  #f9fafb;
+      --white: #ffffff;
+      --green: #10b981;
+      --green-light: #ecfdf5;
+      --yellow: #f59e0b;
+      --yellow-light: #fffbeb;
+      --blue: #3b82f6;
+      --blue-light: #eff6ff;
+      --purple: #8b5cf6;
+      --purple-light: #f5f3ff;
+      --sidebar-w: 220px;
+      --header-h: 60px;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+      --shadow-md: 0 4px 12px rgba(0,0,0,.10);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    body { background: var(--gray-100); color: var(--dark); display: flex; min-height: 100vh; }
+
+    /* ─── SIDEBAR ─────────────────────────────────────────── */
+    #sidebar {
+      width: var(--sidebar-w);
+      background: var(--gray-900);
+      display: flex;
+      flex-direction: column;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+      z-index: 100;
+    }
+    .sidebar-logo {
+      height: var(--header-h);
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      gap: 10px;
+    }
+    .logo-icon { width: 28px; height: 28px; background: var(--red); border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 16px; height: 16px; fill: #fff; }
+    .sidebar-logo-text { font-size: 14px; font-weight: 700; color: #fff; letter-spacing: -.2px; }
+    .sidebar-logo-sub { font-size: 10px; color: var(--gray-400); font-weight: 500; letter-spacing: .4px; text-transform: uppercase; }
+
+    .nav-section-label {
+      font-size: 10px; font-weight: 600; color: var(--gray-600);
+      letter-spacing: .8px; text-transform: uppercase; padding: 18px 18px 6px;
+    }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 18px;
+      cursor: pointer; font-size: 13.5px; color: var(--gray-400);
+      transition: all .15s; border-left: 3px solid transparent;
+    }
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-item.active { background: rgba(232,0,45,.12); color: #fff; border-left-color: var(--red); }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-badge {
+      margin-left: auto; background: var(--red); color: #fff;
+      font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px;
+    }
+
+    /* ─── MAIN ────────────────────────────────────────────── */
+    #main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+    #topbar {
+      height: var(--header-h); background: var(--white);
+      border-bottom: 1px solid var(--gray-200);
+      display: flex; align-items: center; padding: 0 28px; gap: 16px;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .topbar-title { font-size: 15px; font-weight: 700; color: var(--dark); flex: 1; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; }
+    .btn-primary { background: var(--red); color: #fff; }
+    .btn-primary:hover { background: #c8001f; }
+    .btn-ghost { background: transparent; color: var(--gray-700); border: 1px solid var(--gray-200); }
+    .btn-ghost:hover { background: var(--gray-100); }
+    .btn-green { background: var(--green); color: #fff; }
+    .btn-green:hover { background: #059669; }
+    .btn-red-outline { background: var(--red-light); color: var(--red); border: 1px solid rgba(232,0,45,.2); }
+    .btn svg { width: 14px; height: 14px; }
+
+    #content { padding: 24px 28px; flex: 1; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ─── METRICS ─────────────────────────────────────────── */
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+    .metric-card {
+      background: var(--white); border-radius: var(--radius);
+      padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px;
+    }
+    .metric-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; }
+    .metric-icon svg { width: 18px; height: 18px; }
+    .metric-label { font-size: 11.5px; color: var(--gray-600); font-weight: 500; }
+    .metric-value { font-size: 26px; font-weight: 800; color: var(--dark); line-height: 1; }
+    .metric-delta { font-size: 11.5px; color: var(--green); font-weight: 600; }
+
+    /* ─── SECTION HEADERS ─────────────────────────────────── */
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 14px; font-weight: 700; color: var(--dark); }
+    .section-sub { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+
+    /* ─── TABLE ───────────────────────────────────────────── */
+    .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    thead th { background: var(--gray-50); color: var(--gray-600); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--gray-200); }
+    tbody tr { border-bottom: 1px solid var(--gray-100); transition: background .1s; cursor: pointer; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--gray-50); }
+    tbody td { padding: 12px 16px; color: var(--gray-800); vertical-align: middle; }
+    .td-bold { font-weight: 600; color: var(--dark); }
+
+    /* ─── BADGES ──────────────────────────────────────────── */
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge-green { background: var(--green-light); color: #059669; }
+    .badge-yellow { background: var(--yellow-light); color: #d97706; }
+    .badge-red { background: var(--red-light); color: var(--red); }
+    .badge-blue { background: var(--blue-light); color: #2563eb; }
+    .badge-purple { background: var(--purple-light); color: #7c3aed; }
+    .badge-gray { background: var(--gray-100); color: var(--gray-600); }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    /* ─── FORM ────────────────────────────────────────────── */
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.span-2 { grid-column: span 2; }
+    label { font-size: 12px; font-weight: 600; color: var(--gray-700); }
+    label span { color: var(--red); }
+    input, select, textarea {
+      padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 7px;
+      font-size: 13px; color: var(--dark); background: var(--white);
+      transition: border-color .15s; outline: none; width: 100%;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+    textarea { resize: vertical; min-height: 80px; }
+    .form-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 22px; margin-bottom: 18px; }
+    .form-section-title { font-size: 13px; font-weight: 700; color: var(--dark); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .form-section-title .num { width: 22px; height: 22px; border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .form-divider { border: none; border-top: 1px solid var(--gray-100); margin: 18px 0; }
+    .static-field { padding: 9px 12px; border: 1px solid var(--gray-200); border-radius: 7px; font-size: 13px; color: var(--gray-700); background: var(--gray-50); }
+
+    /* ─── QUOTE BUILDER ───────────────────────────────────── */
+    .quote-layout { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+    .carrier-card {
+      border: 2px solid var(--gray-200); border-radius: var(--radius);
+      padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all .15s; position: relative;
+    }
+    .carrier-card:hover { border-color: var(--blue); }
+    .carrier-card.selected { border-color: var(--red); background: var(--red-light); }
+    .carrier-card.selected .carrier-select-ring { display: flex; }
+    .carrier-select-ring { display: none; position: absolute; top: 12px; right: 12px; width: 18px; height: 18px; border-radius: 50%; background: var(--red); color: #fff; align-items: center; justify-content: center; font-size: 10px; }
+    .carrier-name { font-size: 14px; font-weight: 700; color: var(--dark); margin-bottom: 2px; }
+    .carrier-meta { font-size: 12px; color: var(--gray-600); margin-bottom: 10px; }
+    .carrier-price-row { display: flex; align-items: baseline; gap: 6px; }
+    .carrier-total { font-size: 22px; font-weight: 800; color: var(--dark); }
+    .carrier-currency { font-size: 13px; color: var(--gray-600); font-weight: 500; }
+    .carrier-breakdown { margin-top: 10px; border-top: 1px solid var(--gray-200); padding-top: 10px; display: grid; grid-template-columns: 1fr auto; row-gap: 5px; font-size: 12px; }
+    .carrier-breakdown .line-label { color: var(--gray-600); }
+    .carrier-breakdown .line-val { font-weight: 600; color: var(--dark); text-align: right; }
+    .carrier-breakdown .line-total { color: var(--dark); font-weight: 700; border-top: 1px solid var(--gray-200); padding-top: 6px; margin-top: 2px; }
+
+    .quote-summary-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; position: sticky; top: 80px; }
+    .qs-title { font-size: 13px; font-weight: 700; color: var(--dark); margin-bottom: 14px; }
+    .qs-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 5px 0; border-bottom: 1px dashed var(--gray-100); }
+    .qs-row:last-of-type { border-bottom: none; }
+    .qs-label { color: var(--gray-600); }
+    .qs-val { font-weight: 600; color: var(--dark); }
+    .qs-total { display: flex; justify-content: space-between; font-size: 14px; font-weight: 800; padding: 10px 0 0; border-top: 2px solid var(--dark); margin-top: 8px; }
+
+    /* ─── EMAIL PREVIEW ───────────────────────────────────── */
+    .email-preview-box { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 16px; font-size: 13px; line-height: 1.7; color: var(--gray-800); }
+    .ai-tag { display: inline-flex; align-items: center; gap: 4px; background: var(--purple-light); color: var(--purple); font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 999px; margin-bottom: 8px; }
+    .ai-tag svg { width: 10px; height: 10px; }
+
+    /* ─── APPROVAL CARDS ──────────────────────────────────── */
+    .approval-card {
+      background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow);
+      padding: 20px; margin-bottom: 16px; border-left: 4px solid var(--yellow);
+    }
+    .approval-card.type-confirm { border-left-color: var(--blue); }
+    .approval-card.type-email { border-left-color: var(--purple); }
+    .approval-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .approval-id { font-size: 12px; color: var(--gray-500); margin-bottom: 2px; }
+    .approval-company { font-size: 15px; font-weight: 700; color: var(--dark); }
+    .approval-route { font-size: 12px; color: var(--gray-600); margin-top: 2px; }
+    .approval-amount { font-size: 20px; font-weight: 800; color: var(--dark); text-align: right; }
+    .approval-amount-label { font-size: 11px; color: var(--gray-500); text-align: right; }
+    .approval-meta { display: flex; gap: 20px; flex-wrap: wrap; margin: 12px 0; }
+    .approval-meta-item { display: flex; flex-direction: column; gap: 1px; }
+    .approval-meta-label { font-size: 10.5px; color: var(--gray-500); font-weight: 500; text-transform: uppercase; letter-spacing: .4px; }
+    .approval-meta-val { font-size: 13px; font-weight: 600; color: var(--dark); }
+    .approval-actions { display: flex; gap: 10px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--gray-100); flex-wrap: wrap; }
+    .btn-approve { background: var(--green); color: #fff; border: none; }
+    .btn-approve:hover { background: #059669; }
+    .btn-reject { background: var(--red-light); color: var(--red); border: 1px solid rgba(232,0,45,.2); }
+    .btn-reject:hover { background: #ffe0e4; }
+
+    /* ─── PIPELINE FILTER ─────────────────────────────────── */
+    .pipeline-filter-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-tab { padding: 6px 14px; border-radius: 999px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--gray-200); background: var(--white); color: var(--gray-600); transition: all .15s; }
+    .filter-tab.active { background: var(--red); color: #fff; border-color: var(--red); }
+    .search-box { display: flex; align-items: center; gap: 8px; background: var(--white); border: 1px solid var(--gray-200); border-radius: 7px; padding: 7px 12px; flex: 1; max-width: 260px; }
+    .search-box svg { width: 14px; height: 14px; color: var(--gray-400); flex-shrink: 0; }
+    .search-box input { border: none; background: none; font-size: 13px; color: var(--dark); width: 100%; outline: none; padding: 0; }
+
+    /* ─── EMAIL AUDIT TRAIL ───────────────────────────────── */
+    .email-thread { display: flex; flex-direction: column; gap: 12px; }
+    .email-msg { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .email-msg-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--gray-100); cursor: pointer; }
+    .email-msg-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .email-msg-from { font-size: 13px; font-weight: 600; color: var(--dark); }
+    .email-msg-sub { font-size: 11.5px; color: var(--gray-600); }
+    .email-msg-time { margin-left: auto; font-size: 11.5px; color: var(--gray-500); white-space: nowrap; }
+    .email-msg-body { padding: 14px 16px; font-size: 13px; line-height: 1.7; color: var(--gray-800); }
+
+    /* ─── MISC ────────────────────────────────────────────── */
+    .tag { display: inline-block; background: var(--gray-100); color: var(--gray-700); font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+    .progress-bar { height: 4px; border-radius: 999px; background: var(--gray-200); overflow: hidden; margin-top: 4px; }
+    .progress-fill { height: 100%; border-radius: 999px; background: var(--red); }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .completion-bar { background: var(--green-light); border: 1px solid #a7f3d0; border-radius: 8px; padding: 10px 14px; display: flex; gap: 20px; font-size: 12px; margin-bottom: 16px; }
+    .completion-bar span { color: var(--gray-700); }
+    .completion-bar strong { color: var(--dark); }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--gray-300); border-radius: 999px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════ SIDEBAR ═══════════════════ -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div>
+      <div class="sidebar-logo-text">FreightAI</div>
+      <div class="sidebar-logo-sub">Powered by Shipsy</div>
+    </div>
+  </div>
+
+  <div class="nav-section-label">Overview</div>
+  <div class="nav-item active" onclick="showPage('dashboard', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </div>
+
+  <div class="nav-section-label">Quotations</div>
+  <div class="nav-item" onclick="showPage('new-rfq', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    New RFQ
+  </div>
+  <div class="nav-item" onclick="showPage('pipeline', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    Quote Pipeline
+    <span class="nav-badge">12</span>
+  </div>
+
+  <div class="nav-section-label">Approvals</div>
+  <div class="nav-item" onclick="showPage('approvals', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    HITL Approvals
+    <span class="nav-badge">3</span>
+  </div>
+
+  <div class="nav-section-label">Activity</div>
+  <div class="nav-item" onclick="showPage('email-audit', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+    Email Audit Trail
+  </div>
+</nav>
+
+<!-- ═══════════════════ MAIN ═══════════════════════ -->
+<div id="main">
+  <div id="topbar">
+    <div class="topbar-title" id="topbar-title">Dashboard</div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="btn btn-primary" onclick="showPage('new-rfq', document.querySelectorAll('.nav-item')[1])">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New RFQ
+      </button>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- ══════ PAGE: DASHBOARD ══════ -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- 3 Metric Cards -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-icon" style="background:#fff0f3;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#e8002d" stroke-width="2"><path d="M20 7H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><polyline points="16 21 12 17 8 21"/><polyline points="8 7 12 3 16 7"/></svg>
+          </div>
+          <div class="metric-label">Active RFQs</div>
+          <div class="metric-value">12</div>
+          <div class="metric-delta">↑ 4 from yesterday</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon" style="background:#ecfdf5;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="metric-label">Quotes Sent Today</div>
+          <div class="metric-value">7</div>
+          <div class="metric-delta">↑ 2 from yesterday</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-icon" style="background:#fffbeb;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="metric-label">Pending Approvals</div>
+          <div class="metric-value">3</div>
+          <div class="metric-delta" style="color:#d97706;">Awaiting human review</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Recent RFQs -->
+        <div class="card">
+          <div style="padding:16px;border-bottom:1px solid var(--gray-100);">
+            <div class="section-title">Recent RFQs</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>RFQ ID</th>
+                <th>Route</th>
+                <th>Mode</th>
+                <th>Weight</th>
+                <th>Status</th>
+                <th>Received</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr onclick="showPage('pipeline', document.querySelectorAll('.nav-item')[2])">
+                <td class="td-bold">#RFQ-0041</td>
+                <td>DXB → BOM</td>
+                <td><span class="tag">Air</span></td>
+                <td>320 kg</td>
+                <td><span class="badge badge-blue"><span class="dot"></span>Processing</span></td>
+                <td style="font-size:11.5px;color:var(--gray-500);">2h ago</td>
+              </tr>
+              <tr onclick="showPage('approvals', document.querySelectorAll('.nav-item')[3])">
+                <td class="td-bold">#RFQ-0040</td>
+                <td>DXB → JFK</td>
+                <td><span class="tag">Air</span></td>
+                <td>680 kg</td>
+                <td><span class="badge badge-yellow"><span class="dot"></span>Pending Approval</span></td>
+                <td style="font-size:11.5px;color:var(--gray-500);">4h ago</td>
+              </tr>
+              <tr>
+                <td class="td-bold">#RFQ-0039</td>
+                <td>SHJ → CDG</td>
+                <td><span class="tag">Air</span></td>
+                <td>180 kg</td>
+                <td><span class="badge badge-green"><span class="dot"></span>Sent</span></td>
+                <td style="font-size:11.5px;color:var(--gray-500);">6h ago</td>
+              </tr>
+              <tr>
+                <td class="td-bold">#RFQ-0038</td>
+                <td>DXB → LHR</td>
+                <td><span class="tag">Air</span></td>
+                <td>—</td>
+                <td><span class="badge badge-purple"><span class="dot"></span>Pending — Confirm Shipment</span></td>
+                <td style="font-size:11.5px;color:var(--gray-500);">8h ago</td>
+              </tr>
+              <tr>
+                <td class="td-bold">#RFQ-0037</td>
+                <td>AUH → FRA</td>
+                <td><span class="tag">Air</span></td>
+                <td>210 kg</td>
+                <td><span class="badge badge-green"><span class="dot"></span>Sent</span></td>
+                <td style="font-size:11.5px;color:var(--gray-500);">1d ago</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- AI Performance Today -->
+        <div class="card" style="padding:20px;">
+          <div class="section-title" style="margin-bottom:14px;">AI Performance Today</div>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+                <span style="color:var(--gray-600);">Jobs completed successfully</span>
+                <span style="font-weight:700;">7</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:70%;background:var(--green)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+                <span style="color:var(--gray-600);">Jobs failed</span>
+                <span style="font-weight:700;">1</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:10%;background:var(--red)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+                <span style="color:var(--gray-600);">Currently running</span>
+                <span style="font-weight:700;">5</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:50%;background:var(--blue)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+                <span style="color:var(--gray-600);">Pending approvals</span>
+                <span style="font-weight:700;">3</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:30%;background:var(--yellow)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">
+                <span style="color:var(--gray-600);">Avg response time</span>
+                <span style="font-weight:700;">4.2 min</span>
+              </div>
+              <div class="progress-bar"><div class="progress-fill" style="width:85%;background:var(--green)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: NEW RFQ ══════ -->
+    <div class="page" id="page-new-rfq">
+      <div style="max-width:780px;">
+        <p style="font-size:13px;color:var(--gray-600);margin-bottom:20px;">Fill in the shipment details below. The AI agent will extract, validate, look up rates, and generate a quote automatically.</p>
+
+        <div class="form-card">
+          <div class="form-section-title"><div class="num">1</div>Customer Information</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Company Name <span>*</span></label>
+              <input type="text" placeholder="e.g. Emirates Global Logistics" />
+            </div>
+            <div class="form-group">
+              <label>Customer Email <span>*</span></label>
+              <input type="email" placeholder="e.g. logistics@client.com" />
+            </div>
+            <div class="form-group">
+              <label>Contact Person</label>
+              <input type="text" placeholder="Full name" />
+            </div>
+            <div class="form-group">
+              <label>Mode of Transport</label>
+              <div class="static-field">Air Freight</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="form-section-title"><div class="num">2</div>Shipment Details</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Origin Airport / Port <span>*</span></label>
+              <input type="text" placeholder="e.g. DXB – Dubai International" />
+            </div>
+            <div class="form-group">
+              <label>Destination Airport / Port <span>*</span></label>
+              <input type="text" placeholder="e.g. BOM – Chhatrapati Shivaji" />
+            </div>
+          </div>
+
+          <hr class="form-divider" />
+
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label>Gross Weight (kg) <span>*</span></label>
+              <input type="number" placeholder="e.g. 500" />
+            </div>
+            <div class="form-group">
+              <label>Number of Pieces <span>*</span></label>
+              <input type="number" placeholder="e.g. 10" />
+            </div>
+            <div class="form-group">
+              <label>Shipment Date <span>*</span></label>
+              <input type="date" />
+            </div>
+            <div class="form-group">
+              <label>Length (cm) <span>*</span></label>
+              <input type="number" placeholder="cm per piece" />
+            </div>
+            <div class="form-group">
+              <label>Width (cm) <span>*</span></label>
+              <input type="number" placeholder="cm per piece" />
+            </div>
+            <div class="form-group">
+              <label>Height (cm) <span>*</span></label>
+              <input type="number" placeholder="cm per piece" />
+            </div>
+          </div>
+
+          <hr class="form-divider" />
+
+          <div class="form-group">
+            <label>Commodity / Goods Description <span>*</span></label>
+            <input type="text" placeholder="e.g. Electronic Components, Non-Hazardous" />
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="form-section-title"><div class="num">3</div>Special Instructions</div>
+          <div class="form-group">
+            <textarea placeholder="Any special handling requirements, temperature control, etc."></textarea>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:center;margin-top:4px;">
+          <button class="btn btn-primary" onclick="showPage('pipeline', document.querySelectorAll('.nav-item')[2])">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            Submit RFQ &amp; Generate Quote
+          </button>
+          <div style="font-size:12px;color:var(--gray-500);margin-left:auto;">🤖 AI agent will process within ~4 minutes</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: PIPELINE ══════ -->
+    <div class="page" id="page-pipeline">
+      <div class="pipeline-filter-bar">
+        <div class="filter-tab active">All (12)</div>
+        <div class="filter-tab">Processing (5)</div>
+        <div class="filter-tab">Pending Approval (3)</div>
+        <div class="filter-tab">Sent (7)</div>
+        <div class="filter-tab">Failed (1)</div>
+        <div style="margin-left:auto;" class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search customer, route, ID…" />
+        </div>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>RFQ ID</th>
+              <th>Customer</th>
+              <th>Route</th>
+              <th>Mode</th>
+              <th>Weight</th>
+              <th>Pipeline Stage</th>
+              <th>Agent Step</th>
+              <th>Received</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-bold">#RFQ-0041</td>
+              <td>Al Futtaim Group</td>
+              <td>DXB → BOM</td>
+              <td><span class="tag">Air</span></td>
+              <td>320 kg</td>
+              <td><span class="badge badge-blue"><span class="dot"></span>Fetching Rates</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">get_rate</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">2h ago</td>
+              <td>—</td>
+            </tr>
+            <tr>
+              <td class="td-bold">#RFQ-0040</td>
+              <td>Emirates Global</td>
+              <td>DXB → JFK</td>
+              <td><span class="tag">Air</span></td>
+              <td>680 kg</td>
+              <td><span class="badge badge-yellow"><span class="dot"></span>Pending — Select Carrier</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">HITL</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">4h ago</td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="showPage('quote-builder', null)">View Quote</button></td>
+            </tr>
+            <tr>
+              <td class="td-bold">#RFQ-0039</td>
+              <td>DP World Freight</td>
+              <td>SHJ → CDG</td>
+              <td><span class="tag">Air</span></td>
+              <td>180 kg</td>
+              <td><span class="badge badge-green"><span class="dot"></span>Quote Sent</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">Complete</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">6h ago</td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="showPage('email-audit', document.querySelectorAll('.nav-item')[4])">View</button></td>
+            </tr>
+            <tr>
+              <td class="td-bold">#RFQ-0038</td>
+              <td>Aramex Intl.</td>
+              <td>DXB → LHR</td>
+              <td><span class="tag">Air</span></td>
+              <td>—</td>
+              <td><span class="badge badge-purple"><span class="dot"></span>Pending — Confirm Shipment</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">HITL</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">8h ago</td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="showPage('approvals', document.querySelectorAll('.nav-item')[3])">Review</button></td>
+            </tr>
+            <tr>
+              <td class="td-bold">#RFQ-0036</td>
+              <td>Agility Logistics</td>
+              <td>DXB → ORD</td>
+              <td><span class="tag">Air</span></td>
+              <td>450 kg</td>
+              <td><span class="badge badge-yellow"><span class="dot"></span>Pending — Email Preview</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">HITL</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">1d ago</td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="showPage('email-preview', null)">Preview Email</button></td>
+            </tr>
+            <tr>
+              <td class="td-bold">#RFQ-0035</td>
+              <td>Majid Al Futtaim</td>
+              <td>AUH → FRA</td>
+              <td><span class="tag">Air</span></td>
+              <td>210 kg</td>
+              <td><span class="badge badge-green"><span class="dot"></span>Quote Sent</span></td>
+              <td style="font-size:11.5px;color:var(--gray-600);">Complete</td>
+              <td style="font-size:11.5px;color:var(--gray-500);">1d ago</td>
+              <td><button class="btn btn-ghost" style="padding:5px 10px;font-size:11.5px;" onclick="showPage('email-audit', document.querySelectorAll('.nav-item')[4])">View</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: QUOTE BUILDER ══════ -->
+    <div class="page" id="page-quote-builder">
+      <div style="background:var(--blue-light);border:1px solid #bfdbfe;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#1d4ed8;display:flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <strong>RFQ-0040 · Emirates Global Logistics</strong> &nbsp;·&nbsp; DXB → JFK · Air Freight · 680 kg · Gold Tier (12% markup)
+      </div>
+
+      <div class="quote-layout">
+        <div>
+          <div class="section-header">
+            <div>
+              <div class="section-title">Carrier Rates — Select Best Option</div>
+              <div class="section-sub">Rates include all surcharges · All rates in USD</div>
+            </div>
+          </div>
+
+          <!-- Carrier 1 -->
+          <div class="carrier-card selected" onclick="selectCarrier(this)">
+            <div class="carrier-select-ring">✓</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:#1a56db;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;">EC</div>
+              <div>
+                <div class="carrier-name">Emirates SkyCargo <span class="badge badge-green" style="font-size:10px;margin-left:6px;">Best Price</span></div>
+                <div class="carrier-meta">DXB → JFK &nbsp;·&nbsp; Transit: 1 day &nbsp;·&nbsp; Validity: Mar 29, 2026</div>
+              </div>
+            </div>
+            <div class="carrier-price-row">
+              <div class="carrier-total">$7,200</div>
+              <div class="carrier-currency">USD (incl. markup)</div>
+              <div style="margin-left:auto;font-size:12px;color:var(--gray-500);">Base: $6,429</div>
+            </div>
+            <div class="carrier-breakdown">
+              <span class="line-label">Base Freight Rate</span><span class="line-val">$4,800.00</span>
+              <span class="line-label">BAF (Bunker Adj. Factor)</span><span class="line-val">$620.00</span>
+              <span class="line-label">THC (Terminal Handling)</span><span class="line-val">$340.00</span>
+              <span class="line-label">ISPS Security Surcharge</span><span class="line-val">$96.00</span>
+              <span class="line-label">Insurance (0.5%)</span><span class="line-val">$120.00</span>
+              <span class="line-label">Misc / Docs</span><span class="line-val">$83.00</span>
+              <span class="line-label">Gold Tier Markup (12%)</span><span class="line-val">$771.00</span>
+              <span class="line-label line-total">Total Quoted Price</span><span class="line-val line-total">$7,200.00</span>
+            </div>
+          </div>
+
+          <!-- Carrier 2 -->
+          <div class="carrier-card" onclick="selectCarrier(this)">
+            <div class="carrier-select-ring">✓</div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+              <div style="width:36px;height:36px;border-radius:8px;background:#7c3aed;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;font-weight:800;">QR</div>
+              <div>
+                <div class="carrier-name">Qatar Airways Cargo <span class="badge badge-blue" style="font-size:10px;margin-left:6px;">2 days</span></div>
+                <div class="carrier-meta">DXB → JFK &nbsp;·&nbsp; Transit: 2 days &nbsp;·&nbsp; Validity: Mar 29, 2026</div>
+              </div>
+            </div>
+            <div class="carrier-price-row">
+              <div class="carrier-total">$7,650</div>
+              <div class="carrier-currency">USD (incl. markup)</div>
+              <div style="margin-left:auto;font-size:12px;color:var(--gray-500);">Base: $6,830</div>
+            </div>
+            <div class="carrier-breakdown">
+              <span class="line-label">Base Freight Rate</span><span class="line-val">$5,200.00</span>
+              <span class="line-label">BAF</span><span class="line-val">$590.00</span>
+              <span class="line-label">THC</span><span class="line-val">$360.00</span>
+              <span class="line-label">ISPS</span><span class="line-val">$96.00</span>
+              <span class="line-label">Insurance</span><span class="line-val">$128.00</span>
+              <span class="line-label">Misc / Docs</span><span class="line-val">$86.00</span>
+              <span class="line-label">Gold Tier Markup (12%)</span><span class="line-val">$820.00</span>
+              <span class="line-label line-total">Total Quoted Price</span><span class="line-val line-total">$7,650.00</span>
+            </div>
+          </div>
+
+          <!-- Margin Validation -->
+          <div style="background:var(--gray-50);border-radius:8px;padding:12px;font-size:12.5px;color:var(--gray-600);border:1px solid var(--gray-200);">
+            <strong style="color:var(--dark);">⚙️ Margin Validation:</strong> Selected carrier (Emirates SkyCargo) yields <strong style="color:var(--green);">12.0% margin</strong> — above Gold tier minimum of 8%. <strong style="color:var(--yellow);">Requires HITL approval (above $5,000 threshold).</strong>
+          </div>
+
+          <!-- AI Recommendation -->
+          <div style="background:var(--green-light);border:1px solid #a7f3d0;border-radius:8px;padding:12px;font-size:12.5px;color:var(--gray-700);margin-top:10px;">
+            <strong style="color:var(--dark);">AI Recommendation:</strong> Emirates SkyCargo is the best carrier on this lane — 1-day transit, margin compliant. Rate valid until Mar 29. Recommend approval.
+          </div>
+        </div>
+
+        <!-- Quote Summary Sidebar -->
+        <div>
+          <div class="quote-summary-card">
+            <div class="qs-title">📋 Quotation Summary</div>
+            <div class="qs-row"><span class="qs-label">RFQ Reference</span><span class="qs-val">#RFQ-0040</span></div>
+            <div class="qs-row"><span class="qs-label">Customer</span><span class="qs-val">Emirates Global</span></div>
+            <div class="qs-row"><span class="qs-label">Tier</span><span class="qs-val">🥇 Gold</span></div>
+            <div class="qs-row"><span class="qs-label">Origin</span><span class="qs-val">DXB</span></div>
+            <div class="qs-row"><span class="qs-label">Destination</span><span class="qs-val">JFK</span></div>
+            <div class="qs-row"><span class="qs-label">Mode</span><span class="qs-val">Air Freight</span></div>
+            <div class="qs-row"><span class="qs-label">Chargeable Wt.</span><span class="qs-val">680 kg</span></div>
+            <div class="qs-row"><span class="qs-label">Carrier</span><span class="qs-val">Emirates SkyCargo</span></div>
+            <div class="qs-row"><span class="qs-label">Validity</span><span class="qs-val">Mar 29, 2026</span></div>
+            <div class="qs-total"><span>Total (USD)</span><span>$7,200</span></div>
+            <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-green" style="width:100%;justify-content:center;" onclick="showPage('email-preview', null)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Confirm &amp; Send
+              </button>
+              <button class="btn btn-red-outline" style="width:100%;justify-content:center;">
+                ✗ Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: EMAIL PREVIEW ══════ -->
+    <div class="page" id="page-email-preview">
+      <div style="max-width:720px;">
+        <div style="background:var(--purple-light);border:1px solid #ddd6fe;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#6d28d9;display:flex;align-items:center;gap:8px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0;"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Review the AI-generated email before it is sent to the customer. This is the final step.
+        </div>
+
+        <div class="form-card">
+          <div class="form-section-title"><div class="num">1</div>Recipient</div>
+          <div class="form-group">
+            <label>To (Customer Email)</label>
+            <div class="static-field">procurement@emiratesglobal.ae</div>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="form-section-title"><div class="num">2</div>Email Preview</div>
+          <div style="font-size:12px;color:var(--gray-600);margin-bottom:10px;">Read-only · Generated by the AI agent</div>
+          <div class="email-preview-box">
+            <div class="ai-tag">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>
+              AI-generated
+            </div>
+            <p>Dear <strong>Emirates Global Logistics Procurement Team</strong>,</p>
+            <br>
+            <p>Thank you for your freight enquiry. Please find below our competitive quotation for your shipment:</p>
+            <br>
+            <p><strong>📦 Shipment Details:</strong><br>
+            Route: Dubai (DXB) → New York (JFK)<br>
+            Mode: Air Freight<br>
+            Chargeable Weight: 680 kg</p>
+            <br>
+            <p><strong>✈️ Carrier: Emirates SkyCargo</strong><br>
+            Transit Time: 1 Business Day<br>
+            Estimated Departure: Mar 27, 2026</p>
+            <br>
+            <p><strong>💰 Pricing Breakdown (USD):</strong><br>
+            Base Freight Rate: $4,800 | BAF: $620 | THC: $340<br>
+            ISPS: $96 | Insurance: $120 | Misc: $83<br>
+            <strong>Total Quoted Price: $7,200 USD</strong></p>
+            <br>
+            <p>Quote validity: <strong>March 29, 2026</strong>. To confirm, please reply to this email.</p>
+            <br>
+            <p>Best Regards,<br><strong>Freight Team</strong><br>Powered by Shipsy AI</p>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;align-items:center;">
+          <button class="btn btn-primary" onclick="showPage('email-audit', document.querySelectorAll('.nav-item')[4])">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:14px;height:14px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Send Email
+          </button>
+          <button class="btn btn-red-outline" onclick="showPage('pipeline', document.querySelectorAll('.nav-item')[2])">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: APPROVALS ══════ -->
+    <div class="page" id="page-approvals">
+      <div style="background:var(--yellow-light);border:1px solid #fde68a;border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#92400e;display:flex;align-items:center;gap:8px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <strong>3 quotes require human review</strong> — please action before the AI proceeds.
+      </div>
+
+      <!-- Type 1 Card — Shipment Confirmation -->
+      <div class="approval-card type-confirm">
+        <div style="font-size:10.5px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Shipment Confirmation</div>
+        <div class="approval-header">
+          <div>
+            <div class="approval-id">#RFQ-0038 · Received 8h ago</div>
+            <div class="approval-company">Aramex International</div>
+            <div class="approval-route">DXB → LHR · Air Freight</div>
+          </div>
+        </div>
+        <div class="approval-meta">
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Origin</span>
+            <span class="approval-meta-val">Dubai (DXB)</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Destination</span>
+            <span class="approval-meta-val">London (LHR)</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Shipment Date</span>
+            <span class="approval-meta-val">Mar 30, 2026</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Dimensions</span>
+            <span class="approval-meta-val">60 × 40 × 35 cm</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Pieces</span>
+            <span class="approval-meta-val">8</span>
+          </div>
+        </div>
+        <div style="background:var(--blue-light);border-radius:8px;padding:10px 12px;font-size:12.5px;color:#1d4ed8;border:1px solid #bfdbfe;">
+          <strong>Agent Summary:</strong> Extracted all fields from customer email. Weight (340 kg) and dimensions confirmed. Ready to fetch rates.
+        </div>
+        <div class="approval-actions">
+          <button class="btn btn-approve">✓ Confirm &amp; Fetch Rates</button>
+          <button class="btn btn-reject">✗ Reject</button>
+        </div>
+      </div>
+
+      <!-- Type 2 Card — Carrier Selection -->
+      <div class="approval-card">
+        <div style="font-size:10.5px;font-weight:600;color:var(--yellow);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Carrier Selection</div>
+        <div class="approval-header">
+          <div>
+            <div class="approval-id">#RFQ-0040 · Received 4h ago</div>
+            <div class="approval-company">Emirates Global Logistics</div>
+            <div class="approval-route">DXB → JFK · Air Freight · 680 kg</div>
+          </div>
+          <div>
+            <div class="approval-amount-label">Total Quote Value</div>
+            <div class="approval-amount">$7,200 USD</div>
+            <div style="text-align:right;margin-top:4px;"><span class="badge badge-yellow">Above $5K threshold</span></div>
+          </div>
+        </div>
+        <div class="approval-meta">
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Customer Tier</span>
+            <span class="approval-meta-val">🥇 Gold</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Carrier</span>
+            <span class="approval-meta-val">Emirates SkyCargo</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Base Cost</span>
+            <span class="approval-meta-val">$6,429</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Markup Applied</span>
+            <span class="approval-meta-val">12.0% (Gold min: 8%)</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Margin $</span>
+            <span class="approval-meta-val" style="color:var(--green);">$771 ✓</span>
+          </div>
+          <div class="approval-meta-item">
+            <span class="approval-meta-label">Quote Validity</span>
+            <span class="approval-meta-val">Mar 29, 2026</span>
+          </div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--gray-700);border:1px solid var(--gray-200);">
+          <strong>AI Recommendation:</strong> Emirates SkyCargo is best on this lane — 1-day transit, margin compliant. Rate valid 4 days. Recommend immediate approval.
+        </div>
+        <div class="approval-actions">
+          <button class="btn btn-approve" onclick="showPage('email-preview', null)">✓ Approve — Emirates SkyCargo</button>
+          <button class="btn btn-ghost" style="font-size:12.5px;" onclick="showPage('quote-builder', null)">View Full Quote</button>
+          <button class="btn btn-reject">✗ Reject</button>
+        </div>
+      </div>
+
+      <!-- Type 3 Card — Email Preview -->
+      <div class="approval-card type-email">
+        <div style="font-size:10.5px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;">Email Preview</div>
+        <div class="approval-header">
+          <div>
+            <div class="approval-id">#RFQ-0036 · Received 1d ago</div>
+            <div class="approval-company">Agility Logistics LLC</div>
+            <div class="approval-route">DXB → ORD · Air Freight · 450 kg</div>
+          </div>
+        </div>
+        <div style="background:var(--gray-50);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--gray-700);border:1px solid var(--gray-200);margin-bottom:12px;">
+          <strong>Agent Summary:</strong> Quotation email prepared for Agility Logistics — DXB → ORD, United Cargo, $5,850 USD. Awaiting review before send.
+        </div>
+        <div style="font-size:12px;color:var(--gray-500);padding:8px 0;">
+          Email preview excerpt: <em>"Dear Agility Logistics Procurement Team, Thank you for your freight enquiry. Please find below our competitive quotation…"</em>
+        </div>
+        <div class="approval-actions">
+          <button class="btn btn-approve" onclick="showPage('email-preview', null)">📧 Preview &amp; Send</button>
+          <button class="btn btn-reject">✗ Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════ PAGE: EMAIL AUDIT TRAIL ══════ -->
+    <div class="page" id="page-email-audit">
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap;">
+        <div class="search-box" style="max-width:280px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search by RFQ ID or customer…" />
+        </div>
+        <select style="padding:8px 12px;border:1px solid var(--gray-200);border-radius:7px;font-size:13px;background:var(--white);">
+          <option>All RFQs</option>
+          <option selected>#RFQ-0039 · DP World Freight</option>
+          <option>#RFQ-0035 · Majid Al Futtaim</option>
+        </select>
+        <select style="padding:8px 12px;border:1px solid var(--gray-200);border-radius:7px;font-size:13px;background:var(--white);">
+          <option>All Stages</option>
+          <option>Extraction</option>
+          <option>Rate Fetch</option>
+          <option>Calculation</option>
+          <option>Email Generation</option>
+          <option>HITL</option>
+        </select>
+        <div style="font-size:12px;color:var(--gray-500);margin-left:auto;">Thread: <strong>#RFQ-0039 · DP World Freight · SHJ → CDG</strong></div>
+      </div>
+
+      <!-- Completion Summary -->
+      <div class="completion-bar">
+        <span>✅ Completed in <strong>3m 42s</strong></span>
+        <span>·</span>
+        <span>Auto-approved <strong>($4,100 — below $5,000 threshold)</strong></span>
+        <span>·</span>
+        <span>Sent to <strong>ops@dpworld.com</strong></span>
+      </div>
+
+      <div class="email-thread">
+
+        <!-- Inbound email -->
+        <div class="email-msg">
+          <div class="email-msg-header">
+            <div class="email-msg-avatar" style="background:#1a56db;">DP</div>
+            <div>
+              <div class="email-msg-from">ops@dpworld.com</div>
+              <div class="email-msg-sub">Inbound · RFQ Detected</div>
+            </div>
+            <div class="email-msg-time">Today, 09:10 AM</div>
+          </div>
+          <div class="email-msg-body">
+            <p><strong>Subject:</strong> Air Freight Quote Request – Sharjah to Paris</p>
+            <br>
+            <p>Hi Team, we need an air freight quote from Sharjah to Paris CDG. Shipment is 180 kg, electronics, 10 cartons. Please advise ASAP.</p>
+            <p style="margin-top:6px;color:var(--gray-600);">— Logistics Team, DP World Freight</p>
+          </div>
+        </div>
+
+        <!-- AI extraction task -->
+        <div class="email-msg" style="border-left:3px solid var(--purple);">
+          <div class="email-msg-header" style="background:var(--purple-light);">
+            <div class="email-msg-avatar" style="background:var(--purple);">AI</div>
+            <div>
+              <div class="email-msg-from" style="color:var(--purple);">Agent — get_tier · get_rate</div>
+              <div class="email-msg-sub">Data Extraction &amp; Rate Fetch · 12s</div>
+            </div>
+            <div class="email-msg-time">Today, 09:10 AM</div>
+          </div>
+          <div class="email-msg-body">
+            <div class="ai-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>Automated</div>
+            <p>✅ Extracted: Origin=SHJ, Destination=CDG, Mode=Air, Weight=180 kg, Pieces=10</p>
+            <p>✅ Tier resolved: Silver (10% markup, min 6%)</p>
+            <p>✅ Rates fetched: 2 carriers returned — IndiGo Cargo ($4,100), Air France Cargo ($4,380)</p>
+          </div>
+        </div>
+
+        <!-- AI calculate + generate task -->
+        <div class="email-msg" style="border-left:3px solid var(--blue);">
+          <div class="email-msg-header" style="background:var(--blue-light);">
+            <div class="email-msg-avatar" style="background:var(--blue);">AI</div>
+            <div>
+              <div class="email-msg-from" style="color:var(--blue);">Agent — calculate_final_price · generate_quotation</div>
+              <div class="email-msg-sub">Quote Calculated &amp; Email Generated · 8s</div>
+            </div>
+            <div class="email-msg-time">Today, 09:10 AM</div>
+          </div>
+          <div class="email-msg-body">
+            <div class="ai-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>Automated</div>
+            <p>✅ Prices calculated for 2 carriers with Silver tier markup (10%)</p>
+            <p>✅ Best carrier: IndiGo Cargo — $4,100 USD (margin 10%, above min 6%)</p>
+            <p>✅ Below $5,000 threshold — auto-approved, quotation email generated</p>
+          </div>
+        </div>
+
+        <!-- Outbound quotation email -->
+        <div class="email-msg" style="border-left:3px solid var(--green);">
+          <div class="email-msg-header" style="background:var(--green-light);">
+            <div class="email-msg-avatar" style="background:var(--green);">AI</div>
+            <div>
+              <div class="email-msg-from" style="color:var(--green);">Agent — send_email (Outbound)</div>
+              <div class="email-msg-sub">Quotation Email Sent · Auto-approved</div>
+            </div>
+            <div class="email-msg-time">Today, 09:13 AM</div>
+          </div>
+          <div class="email-msg-body">
+            <div class="ai-tag"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83"/></svg>AI-generated</div>
+            <p><strong>To:</strong> ops@dpworld.com</p>
+            <p><strong>Subject:</strong> Freight Quotation – SHJ to CDG | Ref: #RFQ-0039 | IndiGo Cargo | Valid till Mar 29</p>
+            <br>
+            <p>Dear DP World Freight Team,</p>
+            <p>Please find below our quotation for your air freight shipment:<br>
+            Route: Sharjah (SHJ) → Paris (CDG) · IndiGo Cargo · 180 kg<br>
+            <strong>Total: $4,100 USD</strong> · Validity: Mar 29, 2026</p>
+            <p style="margin-top:6px;">To confirm, please reply to this email.</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<script>
+  const pageTitles = {
+    'dashboard': 'Dashboard',
+    'new-rfq': 'New RFQ',
+    'pipeline': 'Quote Pipeline',
+    'quote-builder': 'Quote Builder',
+    'email-preview': 'Email Preview',
+    'approvals': 'HITL Approvals',
+    'email-audit': 'Email Audit Trail',
+  };
+
+  function showPage(pageId, navEl) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageId).classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    if (navEl) navEl.classList.add('active');
+    document.getElementById('topbar-title').textContent = pageTitles[pageId] || pageId;
+    window.scrollTo(0, 0);
+  }
+
+  function selectCarrier(card) {
+    document.querySelectorAll('.carrier-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+  }
+</script>
+</body>
+</html>
