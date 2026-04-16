@@ -63,6 +63,10 @@ export interface Interrupt {
 
 export interface Intervention {
   id: number
+  // Multi-step HITL fields — the same record advances through steps
+  status?: string                         // "pending" | "completed"
+  current_step?: number                   // 0, 1, 2 …
+  total_steps?: number                    // e.g. 3
   // Structured payload from the policy engine — use this for all new HITL rendering
   interrupt_message?: HITLInterruptPayload
   // Legacy interrupt shape — kept for backward compat with pre-policy-upgrade jobs

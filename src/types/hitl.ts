@@ -73,4 +73,5 @@ export type HitlSubtype =
   | 'type1'       // interaction_type=["form"], step_index absent or 0
   | 'type2_step0' // interaction_type=["candidate_selection"]
   | 'type2_step1' // interaction_type=["form"], step_index == 1
+  | 'type2_step2' // interaction_type=["form"], step_index == 2 — final approval
   | 'type3'       // interaction_type=["tool_args"]

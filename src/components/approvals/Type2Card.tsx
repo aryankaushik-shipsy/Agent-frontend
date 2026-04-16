@@ -14,7 +14,7 @@ import type { CandidateOption } from '../../types/hitl'
 interface Props {
   job: JobDetail
   intervention: Intervention
-  subtype: 'type2_step0' | 'type2_step1'
+  subtype: 'type2_step0' | 'type2_step1' | 'type2_step2'
   onAction: (body: HITLActionRequest) => void
   loading: boolean
 }
@@ -258,11 +258,101 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   )
 }
 
+// ── Step 2: Final Approval ────────────────────────────────────────────────────
+
+function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>) {
+  const navigate = useNavigate()
+  const customer = getCustomerName(job)
+  const form = getFormData(intervention)
+  const msg = intervention.interrupt_message
+  const stepIndex = msg?.step_index ?? 2
+  const totalSteps = msg?.total_steps ?? 3
+  const actionId = msg?.actions?.[0]?.id ?? 'approved'
+
+  if (!form) return null
+
+  const cv = form.current_values ?? {}
+  const carrierName = cv.carrier as string | undefined
+  const grandTotal = cv.grand_total as number | null | undefined
+  const currencyCode = (cv.currency_code as string) ?? 'USD'
+
+  return (
+    <div className="approval-card">
+      <div className="approval-header">
+        <div>
+          <div className="approval-title">
+            #RFQ-{job.id}
+            <span style={{ marginLeft: 8 }}>
+              <Badge variant="purple" dot={false}>Final Approval</Badge>
+            </span>
+            <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--gray-500)', fontWeight: 400 }}>
+              Step {stepIndex + 1} of {totalSteps}
+            </span>
+          </div>
+          <div className="approval-sub">
+            {customer}{carrierName ? ` · ${carrierName}` : ''}
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+            {formatRelativeTime(intervention.created_at ?? job.created_at)}
+          </span>
+          <button
+            onClick={() => navigate(`/pipeline/${job.id}/quote/confirm`)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
+              textDecoration: 'underline', textUnderlineOffset: 2,
+            }}
+          >
+            View Details →
+          </button>
+        </div>
+      </div>
+
+      {msg?.context?.summary && (
+        <div className="approval-rec">{msg.context.summary}</div>
+      )}
+
+      {/* Read-only summary of key fields */}
+      <div className="hitl-form">
+        {form.schema.slice(0, 6).map((field) => {
+          const value = cv[field.key]
+          return (
+            <div key={field.key} className="hitl-form-row">
+              <label className="hitl-form-label">{field.label}</label>
+              <span className="hitl-form-static">{value != null ? String(value) : '—'}</span>
+            </div>
+          )
+        })}
+        {grandTotal != null && (
+          <div className="hitl-form-row" style={{ fontWeight: 700, borderTop: '2px solid var(--gray-200)', paddingTop: 8, marginTop: 4 }}>
+            <label className="hitl-form-label">Grand Total</label>
+            <span style={{ color: 'var(--primary, #1d4ed8)' }}>{currencyCode} {grandTotal.toLocaleString()}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="approval-actions">
+        <Button variant="red-outline" disabled={loading} onClick={() => onAction({ action: 'end' })}>
+          Reject
+        </Button>
+        <Button variant="green" loading={loading} onClick={() => onAction({ action: actionId })}>
+          Approve
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 // ── Router ─────────────────────────────────────────────────────────────────────
 
 export function Type2Card({ job, intervention, subtype, onAction, loading }: Props) {
   if (subtype === 'type2_step0') {
     return <Step0 job={job} intervention={intervention} onAction={onAction} loading={loading} />
+  }
+  if (subtype === 'type2_step2') {
+    return <Step2 job={job} intervention={intervention} onAction={onAction} loading={loading} />
   }
   return <Step1 job={job} intervention={intervention} onAction={onAction} loading={loading} />
 }

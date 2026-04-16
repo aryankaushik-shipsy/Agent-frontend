@@ -8,7 +8,9 @@ export function detectHitlSubtype(intervention: Intervention): HitlSubtype | nul
   if (type === 'candidate_selection') return 'type2_step0'
   if (type === 'tool_args') return 'type3'
   if (type === 'form') {
-    return (msg.step_index == null || msg.step_index === 0) ? 'type1' : 'type2_step1'
+    if (msg.step_index == null || msg.step_index === 0) return 'type1'
+    if (msg.step_index === 2) return 'type2_step2'
+    return 'type2_step1'
   }
   return null
 }
@@ -26,7 +28,7 @@ export function getToolArgsData(intervention: Intervention): ToolArgsData | null
 }
 
 export function getPendingIntervention(interventions: Intervention[] | undefined): Intervention | undefined {
-  return interventions?.find((i) => i.action_taken == null)
+  return interventions?.find((i) => i.action_taken == null && i.status !== 'completed')
 }
 
 export function stripHtml(html: string): string {

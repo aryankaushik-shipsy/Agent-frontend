@@ -128,9 +128,19 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                     Review
                   </Button>
                 )}
-                {(subtype === 'type2_step0' || subtype === 'type2_step1') && (
+                {subtype === 'type2_step0' && (
                   <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Quote
+                  </Button>
+                )}
+                {subtype === 'type2_step1' && (
+                  <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/edit`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    Review Pricing
+                  </Button>
+                )}
+                {subtype === 'type2_step2' && (
+                  <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/confirm`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    Approve
                   </Button>
                 )}
                 {subtype === 'type3' && (

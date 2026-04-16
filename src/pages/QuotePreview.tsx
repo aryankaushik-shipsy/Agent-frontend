@@ -46,9 +46,9 @@ export function QuotePreview() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 16 }}>
         <Spinner size="lg" />
-        <div style={{ fontWeight: 600, fontSize: 16 }}>Generating email preview…</div>
+        <div style={{ fontWeight: 600, fontSize: 16 }}>Processing selection…</div>
         <div style={{ color: 'var(--gray-500)', fontSize: 13, textAlign: 'center', maxWidth: 340 }}>
-          The agent is preparing your quote email. This usually takes 20–30 seconds.
+          The agent is advancing to the next step. This usually takes a few seconds.
         </div>
       </div>
     )
@@ -60,10 +60,10 @@ export function QuotePreview() {
         <div style={{ fontSize: 32 }}>⏱</div>
         <div style={{ fontWeight: 600, fontSize: 16 }}>Taking longer than expected</div>
         <div style={{ color: 'var(--gray-500)', fontSize: 13, textAlign: 'center', maxWidth: 340 }}>
-          The email preview hasn't appeared yet. Check HITL Approvals — it may arrive shortly.
+          The next step hasn't appeared yet. Check the pipeline — it may arrive shortly.
         </div>
-        <Button variant="primary" onClick={() => navigate('/approvals')}>
-          Go to HITL Approvals
+        <Button variant="primary" onClick={() => navigate('/pipeline')}>
+          Go to Pipeline
         </Button>
       </div>
     )
@@ -73,8 +73,9 @@ export function QuotePreview() {
     await mutateAsync({ id: interventionId, action: actionId, selected_candidate_id: selectedCandidateId })
     setWaitingForPreview(true)
 
-    // Poll for the new Type 3 (email preview) HITL entry the agent will create.
-    // Max ~45 s (15 attempts × 3 s each).
+    // Poll the same HITL record for step advancement.
+    // After Step 0 is submitted the middleware resets action_taken to null,
+    // increments current_step, and updates the interrupt payload.
     const jobIdNum = parseInt(jobId!)
     let attempts = 0
     const MAX = 15
@@ -84,9 +85,24 @@ export function QuotePreview() {
       try {
         const job = await getJobById(jobIdNum)
         const pending = getPendingIntervention(job.interventions)
-        if (pending && detectHitlSubtype(pending) === 'type3') {
-          navigate(`/pipeline/${jobIdNum}/email-preview`)
-          return
+        if (!pending) { /* not ready yet */ }
+        else {
+          const subtype = detectHitlSubtype(pending)
+          // Step 1 — price edit form
+          if (subtype === 'type2_step1') {
+            navigate(`/pipeline/${jobIdNum}/quote/edit`)
+            return
+          }
+          // Step 2 — final approval
+          if (subtype === 'type2_step2') {
+            navigate(`/pipeline/${jobIdNum}/quote/confirm`)
+            return
+          }
+          // Separate Type 3 — email preview (different HITL record)
+          if (subtype === 'type3') {
+            navigate(`/pipeline/${jobIdNum}/email-preview`)
+            return
+          }
         }
       } catch {
         // network hiccup — keep trying

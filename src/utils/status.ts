@@ -55,14 +55,18 @@ export function deriveJobStatus(
     )
     if (!ratesDone) return { label: 'Gathering Info', variant: 'yellow' }
     if (subtype === 'type1') return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
-    if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type2_step0') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type2_step1') return { label: 'Price Review Pending', variant: 'purple' }
+    if (subtype === 'type2_step2') return { label: 'Final Approval Pending', variant: 'purple' }
     if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
   // running — check HITL subtype
   if (subtype === 'type1') return { label: 'Pending — Confirm Shipment', variant: 'purple' }
-  if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type2_step0') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type2_step1') return { label: 'Pending — Review Pricing', variant: 'yellow' }
+  if (subtype === 'type2_step2') return { label: 'Pending — Final Approval', variant: 'yellow' }
   if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
   return { label: 'Processing', variant: 'blue' }
 }
@@ -82,13 +86,17 @@ export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null)
     if (isEmailSent(job.tasks)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     // Pre-send HITL stages
     if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
-    if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type2_step0') return { label: 'Carrier Selection Pending', variant: 'purple' }
+    if (subtype === 'type2_step1') return { label: 'Price Review Pending', variant: 'purple' }
+    if (subtype === 'type2_step2') return { label: 'Final Approval Pending', variant: 'purple' }
     if (subtype === 'type1') return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
     return { label: 'Gathering Info', variant: 'yellow' }
   }
 
   if (subtype === 'type1') return { label: 'Pending — Confirm Shipment', variant: 'purple' }
-  if (subtype === 'type2_step0' || subtype === 'type2_step1') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type2_step0') return { label: 'Pending — Select Carrier', variant: 'yellow' }
+  if (subtype === 'type2_step1') return { label: 'Pending — Review Pricing', variant: 'yellow' }
+  if (subtype === 'type2_step2') return { label: 'Pending — Final Approval', variant: 'yellow' }
   if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
 
   // running, no hitl — check currently running task title (forward order)

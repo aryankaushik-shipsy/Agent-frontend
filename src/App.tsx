@@ -7,6 +7,8 @@ import { NewRFQ } from './pages/NewRFQ'
 import { QuotePipeline } from './pages/QuotePipeline'
 import { QuoteBuilder } from './pages/QuoteBuilder'
 import { QuotePreview } from './pages/QuotePreview'
+import { QuoteEditForm } from './pages/QuoteEditForm'
+import { QuoteConfirm } from './pages/QuoteConfirm'
 import { EmailPreview } from './pages/EmailPreview'
 import { HITLApprovals } from './pages/HITLApprovals'
 import { ApprovalDetail } from './pages/ApprovalDetail'
@@ -33,6 +35,8 @@ export default function App() {
               <Route path="pipeline" element={<QuotePipeline />} />
               <Route path="pipeline/:jobId/quote" element={<QuoteBuilder />} />
               <Route path="pipeline/:jobId/quote/preview" element={<QuotePreview />} />
+              <Route path="pipeline/:jobId/quote/edit" element={<QuoteEditForm />} />
+              <Route path="pipeline/:jobId/quote/confirm" element={<QuoteConfirm />} />
               <Route path="pipeline/:jobId/email-preview" element={<EmailPreview />} />
               <Route path="approvals" element={<HITLApprovals />} />
               <Route path="approvals/:jobId" element={<ApprovalDetail />} />

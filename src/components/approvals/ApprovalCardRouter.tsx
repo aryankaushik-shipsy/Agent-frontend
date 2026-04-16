@@ -31,7 +31,7 @@ export function ApprovalCardRouter({ job, onAction, loadingId }: Props) {
     )
   }
 
-  if (subtype === 'type2_step0' || subtype === 'type2_step1') {
+  if (subtype === 'type2_step0' || subtype === 'type2_step1' || subtype === 'type2_step2') {
     return (
       <Type2Card
         job={job}

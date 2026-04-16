@@ -7,6 +7,7 @@ const TYPE_LABELS: Record<HitlSubtype, string> = {
   type1: 'Shipment Confirmation',
   type2_step0: 'Carrier Selection',
   type2_step1: 'Price Review',
+  type2_step2: 'Final Approval',
   type3: 'Email Preview',
 }
 
