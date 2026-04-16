@@ -41,6 +41,21 @@ export async function getJobById(jobId: number): Promise<JobDetail> {
   if (!raw.interventions && raw.hitl_records) raw = { ...raw, interventions: raw.hitl_records }
   raw.interventions = raw.interventions ?? []
 
+  // Normalize intervention shape: the API returns the structured HITL payload
+  // under "interrupt", but our frontend types expect it under "interrupt_message".
+  // Map it so detectHitlSubtype / getCandidateData / etc. work correctly.
+  raw.interventions = raw.interventions.map((inv: Record<string, unknown>) => {
+    if (!inv.interrupt_message && inv.interrupt && typeof inv.interrupt === 'object') {
+      const intr = inv.interrupt as Record<string, unknown>
+      // Only remap if it looks like a policy-engine payload (has interaction_type),
+      // not the legacy Interrupt shape (has details/actions at top level).
+      if (intr.interaction_type || intr.data) {
+        return { ...inv, interrupt_message: intr }
+      }
+    }
+    return inv
+  })
+
   // Normalize ticket_id: first check top-level field aliases, then
   // look inside info[] for the "Trace Reference" label (primary source).
   if (!raw.ticket_id) {

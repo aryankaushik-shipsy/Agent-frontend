@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function ContextBanner({ job, type1, markupPct }: Props) {
-  const cv = type1.current_values
+  const cv = type1.current_values ?? {}
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
 

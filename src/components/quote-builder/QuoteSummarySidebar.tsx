@@ -22,7 +22,7 @@ export function QuoteSummarySidebar({
   interventionId, onConfirm, onReject, loading
 }: Props) {
   const navigate = useNavigate()
-  const cv = type1.current_values
+  const cv = type1.current_values ?? {}
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
   // actionId is passed through to QuotePreview for the legacy submit path

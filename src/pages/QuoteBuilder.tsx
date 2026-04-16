@@ -39,13 +39,37 @@ export function QuoteBuilder() {
   const type2Int = getPendingIntervention(job.interventions)
   const candidateData = type2Int ? getCandidateData(type2Int) : null
 
-  if (!type1 || !type2Int) {
+  if (!type2Int) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Carrier Selection stage.</div>
       </div>
     )
   }
+
+  // When there's no Type 1 intervention (e.g. workflow skips the form confirmation
+  // step), synthesise a FormData-like object from the rfq_agent task output so the
+  // ContextBanner and QuoteSummarySidebar can still render shipment details.
+  const effectiveType1: FormData = type1 ?? (() => {
+    const agentTask = (job.tasks ?? []).find(
+      (t) => t.title === 'rfq_agent' && t.output_json
+    )
+    const items = (agentTask?.output_json as Record<string, unknown>)?.response as
+      | { items?: Record<string, unknown>[] }
+      | string
+      | undefined
+    let parsed: Record<string, unknown> | undefined
+    if (typeof items === 'string') {
+      try { parsed = (JSON.parse(items) as { items?: Record<string, unknown>[] }).items?.[0] } catch { /* ignore */ }
+    } else {
+      parsed = (items as { items?: Record<string, unknown>[] })?.items?.[0]
+    }
+    return {
+      current_values: parsed ?? {},
+      schema: [],
+      resolved_options: {},
+    }
+  })()
 
   // Prefer full carrier data from calculate_final_price task (has breakdown, markup, subtotal).
   // Fall back to candidate_selection options from HITL payload.
@@ -67,7 +91,7 @@ export function QuoteBuilder() {
 
   return (
     <div>
-      <ContextBanner job={job} type1={type1} markupPct={selectedCarrier?.markup_pct} />
+      <ContextBanner job={job} type1={effectiveType1} markupPct={selectedCarrier?.markup_pct} />
 
       <div className="quote-layout">
         <div>
@@ -90,7 +114,7 @@ export function QuoteBuilder() {
 
         <QuoteSummarySidebar
           job={job}
-          type1={type1}
+          type1={effectiveType1}
           selectedCarrier={selectedCarrier}
           selectedIndex={selectedIdx}
           interventionId={type2Int.id}
