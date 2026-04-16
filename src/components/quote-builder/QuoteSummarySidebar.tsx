@@ -12,6 +12,8 @@ interface Props {
   selectedCarrier: Carrier | undefined
   selectedIndex: number
   interventionId: number
+  actionId: string
+  selectedCandidateId: string
   onConfirm: (action: string) => void
   onReject: () => void
   loading: boolean
@@ -19,18 +21,16 @@ interface Props {
 
 export function QuoteSummarySidebar({
   job, type1, selectedCarrier, selectedIndex,
-  interventionId, onConfirm, onReject, loading
+  interventionId, actionId, selectedCandidateId, onConfirm, onReject, loading
 }: Props) {
   const navigate = useNavigate()
   const cv = type1.current_values ?? {}
   const tier = getTierFromTasks(job)
   const customer = getCustomerName(job)
-  // actionId is passed through to QuotePreview for the legacy submit path
-  const actionId = `carrier_${selectedIndex + 1}`
 
   function handleChooseCarrier() {
     navigate(`/pipeline/${job.id}/quote/preview`, {
-      state: { actionId, interventionId, selectedCarrier, type1, tier, customer },
+      state: { actionId, interventionId, selectedCarrier, selectedCandidateId, type1, tier, customer },
     })
   }
 

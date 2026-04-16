@@ -13,6 +13,7 @@ interface PreviewState {
   actionId: string
   interventionId: number
   selectedCarrier: Carrier
+  selectedCandidateId: string
   type1: FormData
   tier: string
   customer: string
@@ -38,8 +39,8 @@ export function QuotePreview() {
     )
   }
 
-  const { actionId, interventionId, selectedCarrier, type1, tier, customer } = state
-  const cv = type1.current_values
+  const { actionId, interventionId, selectedCarrier, selectedCandidateId, type1, tier, customer } = state
+  const cv = type1.current_values ?? {}
 
   if (waitingForPreview) {
     return (
@@ -69,7 +70,7 @@ export function QuotePreview() {
   }
 
   async function handleSend() {
-    await mutateAsync({ id: interventionId, action: actionId })
+    await mutateAsync({ id: interventionId, action: actionId, selected_candidate_id: selectedCandidateId })
     setWaitingForPreview(true)
 
     // Poll for the new Type 3 (email preview) HITL entry the agent will create.

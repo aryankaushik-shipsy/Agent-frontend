@@ -118,6 +118,8 @@ export function QuoteBuilder() {
           selectedCarrier={selectedCarrier}
           selectedIndex={selectedIdx}
           interventionId={type2Int.id}
+          actionId={type2Int.interrupt_message?.actions?.[0]?.id ?? 'select'}
+          selectedCandidateId={selectedCarrier ? String((selectedCarrier as unknown as Record<string, unknown>)[candidateData?.id_field ?? 'carrier'] ?? selectedCarrier.carrier) : ''}
           onConfirm={handleAction}
           onReject={() => handleAction('end')}
           loading={isPending}
