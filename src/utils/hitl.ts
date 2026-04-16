@@ -16,7 +16,14 @@ export function detectHitlSubtype(intervention: Intervention): HitlSubtype | nul
 }
 
 export function getFormData(intervention: Intervention): FormData | null {
-  return intervention.interrupt_message?.data?.form ?? null
+  const raw = intervention.interrupt_message?.data?.form
+  if (!raw) return null
+  // Normalize: API sends "field" instead of "key" in schema entries
+  const schema = (raw.schema ?? []).map((s) => ({
+    ...s,
+    key: s.key || (s as unknown as Record<string, string>).field || '',
+  }))
+  return { ...raw, schema }
 }
 
 export function getCandidateData(intervention: Intervention): CandidateSelectionData | null {

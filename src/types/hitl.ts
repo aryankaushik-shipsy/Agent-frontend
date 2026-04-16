@@ -1,11 +1,15 @@
 export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args'
 
 export interface FormFieldSchema {
-  key: string
+  key: string        // dashboard-canonical name
+  field?: string     // API sends "field" instead of "key"
   label: string
   type: 'string' | 'number' | 'date' | 'select' | 'text'
   editable: boolean
   options?: string[]
+  description?: string | null
+  min?: number | null
+  max?: number | null
 }
 
 export interface FormData {
