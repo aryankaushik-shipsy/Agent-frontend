@@ -1,4 +1,4 @@
-export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args'
+export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval'
 
 export interface FormFieldSchema {
   key: string        // dashboard-canonical name

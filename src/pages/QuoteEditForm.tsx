@@ -156,9 +156,13 @@ function QuoteEditFormInner({
       try {
         const freshJob = await getJobById(jobIdNum)
         const next = getPendingIntervention(freshJob.interventions)
-        if (next && detectHitlSubtype(next) === 'type2_step2') {
-          navigate(`/pipeline/${jobIdNum}/quote/confirm`)
-          return
+        if (next && next.action_taken == null) {
+          const subtype = detectHitlSubtype(next)
+          // Step advanced: check subtype or current_step
+          if (subtype === 'type2_step2' || next.current_step === 2) {
+            navigate(`/pipeline/${jobIdNum}/quote/confirm`)
+            return
+          }
         }
       } catch {
         // network hiccup — keep trying

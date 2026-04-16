@@ -7,6 +7,7 @@ export function detectHitlSubtype(intervention: Intervention): HitlSubtype | nul
   const type = msg.interaction_type?.[0]
   if (type === 'candidate_selection') return 'type2_step0'
   if (type === 'tool_args') return 'type3'
+  if (type === 'approval') return 'type2_step2'
   if (type === 'form') {
     if (msg.step_index == null || msg.step_index === 0) return 'type1'
     if (msg.step_index === 2) return 'type2_step2'

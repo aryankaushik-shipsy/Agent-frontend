@@ -269,9 +269,7 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const totalSteps = msg?.total_steps ?? 3
   const actionId = msg?.actions?.[0]?.id ?? 'approved'
 
-  if (!form) return null
-
-  const cv = form.current_values ?? {}
+  const cv = form?.current_values ?? {}
   const carrierName = cv.carrier as string | undefined
   const grandTotal = cv.grand_total as number | null | undefined
   const currencyCode = (cv.currency_code as string) ?? 'USD'
@@ -316,7 +314,7 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
 
       {/* Read-only summary of key fields */}
       <div className="hitl-form">
-        {form.schema.slice(0, 6).map((field) => {
+        {(form?.schema ?? []).slice(0, 6).map((field) => {
           const value = cv[field.key]
           return (
             <div key={field.key} className="hitl-form-row">
@@ -325,6 +323,13 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
             </div>
           )
         })}
+        {/* Fallback for approval type with no form schema */}
+        {(!form?.schema || form.schema.length === 0) && Object.entries(cv).slice(0, 6).map(([key, value]) => (
+          <div key={key} className="hitl-form-row">
+            <label className="hitl-form-label">{key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}</label>
+            <span className="hitl-form-static">{value != null ? String(value) : '—'}</span>
+          </div>
+        ))}
         {grandTotal != null && (
           <div className="hitl-form-row" style={{ fontWeight: 700, borderTop: '2px solid var(--gray-200)', paddingTop: 8, marginTop: 4 }}>
             <label className="hitl-form-label">Grand Total</label>

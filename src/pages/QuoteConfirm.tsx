@@ -24,8 +24,9 @@ export function QuoteConfirm() {
   const pending = getPendingIntervention(job.interventions)
   const form = pending ? getFormData(pending) : null
   const msg = pending?.interrupt_message
+  const subtype = pending ? detectHitlSubtype(pending) : null
 
-  if (!pending || !form || detectHitlSubtype(pending) !== 'type2_step2') {
+  if (!pending || (subtype !== 'type2_step2' && pending.current_step !== 2)) {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in the Final Approval stage.</div>
@@ -38,7 +39,7 @@ export function QuoteConfirm() {
   const actionId = msg?.actions?.[0]?.id ?? 'approved'
   const customer = getCustomerName(job)
   const tier = getTierFromTasks(job)
-  const cv = form.current_values ?? {}
+  const cv = form?.current_values ?? {}
 
   // Prior edits from earlier steps (audit trail)
   const priorEdits = (msg as unknown as Record<string, unknown>)?.prior_edits as
@@ -104,10 +105,9 @@ export function QuoteConfirm() {
         </div>
 
         <div style={{ padding: '20px 24px' }}>
-          {/* Render all form fields as read-only */}
-          {form.schema.map((field) => {
+          {/* Render form fields as read-only (if schema available) */}
+          {(form?.schema ?? []).map((field) => {
             const value = cv[field.key]
-            // Check if this field was edited in a prior step
             const wasEdited = priorEdits?.some((e) => e.edits && field.key in e.edits)
 
             return (
@@ -126,8 +126,8 @@ export function QuoteConfirm() {
             )
           })}
 
-          {/* If no schema, show raw current_values */}
-          {form.schema.length === 0 && Object.entries(cv).map(([key, value]) => (
+          {/* If no schema (e.g. approval type), show raw current_values */}
+          {(!form?.schema || form.schema.length === 0) && Object.entries(cv).map(([key, value]) => (
             <div key={key} style={{
               display: 'flex', justifyContent: 'space-between', padding: '8px 0',
               fontSize: 13, borderBottom: '1px solid var(--gray-50)',
