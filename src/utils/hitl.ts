@@ -1,5 +1,5 @@
 import type { Intervention } from '../types/job'
-import type { HitlSubtype, FormData, CandidateSelectionData, ToolArgsData } from '../types/hitl'
+import type { HitlSubtype, FormData, CandidateSelectionData, ToolArgsData, InterruptActionItem } from '../types/hitl'
 
 export function detectHitlSubtype(intervention: Intervention): HitlSubtype | null {
   const msg = intervention.interrupt_message
@@ -41,4 +41,16 @@ export function getPendingIntervention(interventions: Intervention[] | undefined
 
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim()
+}
+
+/**
+ * Returns the action items array from an intervention, handling both shapes:
+ * - Legacy: `actions: [...]`
+ * - Policy engine: `actions: { items: [...], source: "..." }`
+ */
+export function getActionItems(intervention: Intervention | null | undefined): InterruptActionItem[] {
+  const raw = intervention?.interrupt_message?.actions
+  if (!raw) return []
+  if (Array.isArray(raw)) return raw
+  return raw.items ?? []
 }

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, getFormData, detectHitlSubtype } from '../utils/hitl'
+import { getActionItems, getPendingIntervention, getFormData, detectHitlSubtype } from '../utils/hitl'
 import { getJobById } from '../api/jobs'
 import { getTierInfo, getCustomerName } from '../utils/status'
 import { isAboveThreshold } from '../utils/margin'
@@ -10,6 +10,8 @@ import { TIER_MINIMUMS } from '../constants'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
+import { ActionButtons } from '../components/approvals/ActionButtons'
+import type { InterruptActionItem } from '../types/hitl'
 
 export function QuoteEditForm() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -40,7 +42,7 @@ export function QuoteEditForm() {
 
   const stepIndex = msg?.step_index ?? 1
   const totalSteps = msg?.total_steps ?? 3
-  const actionId = msg?.actions?.[0]?.id ?? 'confirmed'
+  const actionItems = getActionItems(pending)
   const customer = getCustomerName(job)
   const tierInfo = getTierInfo(job)
   const tier = tierInfo?.tierLabel ?? '—'
@@ -53,7 +55,7 @@ export function QuoteEditForm() {
       form={form}
       stepIndex={stepIndex}
       totalSteps={totalSteps}
-      actionId={actionId}
+      actionItems={actionItems}
       customer={customer}
       tier={tier}
       tierMin={tierMin}
@@ -71,7 +73,7 @@ export function QuoteEditForm() {
 
 // Inner component so hooks aren't called conditionally
 function QuoteEditFormInner({
-  job, interventionId, form, stepIndex, totalSteps, actionId,
+  job, interventionId, form, stepIndex, totalSteps, actionItems,
   customer, tier, tierMin, mutateAsync, isPending, navigate, jobId,
   waitingForNext, setWaitingForNext, waitingTimedOut, setWaitingTimedOut,
 }: {
@@ -80,7 +82,7 @@ function QuoteEditFormInner({
   form: import('../types/hitl').FormData
   stepIndex: number
   totalSteps: number
-  actionId: string
+  actionItems: InterruptActionItem[]
   customer: string
   tier: string
   tierMin: number
@@ -142,11 +144,12 @@ function QuoteEditFormInner({
     )
   }
 
-  async function handleSubmit() {
-    await mutateAsync({ id: interventionId, action: actionId, edited_values: computeEdits() })
+  async function submitAction(body: import('../api/hitl').HITLActionRequest) {
+    await mutateAsync({ id: interventionId, ...body })
     setWaitingForNext(true)
 
-    // Poll for step advancement to final approval (step 2)
+    // Poll the same HITL record for step advancement to Step 2 (final approval),
+    // or navigate to the pipeline if the record completed (e.g. the user picked "end").
     const jobIdNum = parseInt(jobId)
     let attempts = 0
     const MAX = 15
@@ -156,11 +159,18 @@ function QuoteEditFormInner({
       try {
         const freshJob = await getJobById(jobIdNum)
         const next = getPendingIntervention(freshJob.interventions)
-        if (next && next.action_taken == null) {
+        if (!next) {
+          navigate('/pipeline')
+          return
+        }
+        if (next.action_taken == null) {
           const subtype = detectHitlSubtype(next)
-          // Step advanced: check subtype or current_step
           if (subtype === 'type2_step2' || next.current_step === 2) {
             navigate(`/pipeline/${jobIdNum}/quote/confirm`)
+            return
+          }
+          if (subtype === 'type3') {
+            navigate(`/pipeline/${jobIdNum}/email-preview`)
             return
           }
         }
@@ -273,20 +283,13 @@ function QuoteEditFormInner({
       </div>
 
       {/* Action bar */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
-        <Button
-          variant="red-outline"
-          disabled={isPending}
-          onClick={async () => {
-            await mutateAsync({ id: interventionId, action: 'end' })
-            navigate('/pipeline')
-          }}
-        >
-          Manual Resolution
-        </Button>
-        <Button variant="green" loading={isPending} onClick={handleSubmit}>
-          Confirm & Generate Quotation
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+        <ActionButtons
+          actions={actionItems}
+          loading={isPending}
+          buildBody={(item) => ({ action: item.id, edited_values: computeEdits() })}
+          onSubmit={submitAction}
+        />
       </div>
     </div>
   )

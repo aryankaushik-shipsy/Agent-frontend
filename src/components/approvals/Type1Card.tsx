@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
-import { getFormData } from '../../utils/hitl'
+import { getActionItems, getFormData } from '../../utils/hitl'
+import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 
@@ -42,13 +42,7 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
     return edits
   }
 
-  function handleConfirm() {
-    onAction({ action: 'approved', edited_values: computeEdits() })
-  }
-
-  function handleCorrect() {
-    onAction({ action: 'correct_and_rerun', edited_values: computeEdits() })
-  }
+  const actionItems = getActionItems(intervention)
 
   const origin = (values.origin as string) ?? '—'
   const destination = (values.destination as string) ?? '—'
@@ -166,14 +160,15 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
         <div className="approval-rec">{summary}</div>
       )}
 
-      <div className="approval-actions">
-        <Button variant="green" loading={loading} onClick={handleConfirm}>
-          Confirm &amp; Fetch Rates
-        </Button>
-        <Button variant="red-outline" disabled={loading} onClick={handleCorrect}>
-          Correct &amp; Re-extract
-        </Button>
-      </div>
+      <ActionButtons
+        actions={actionItems}
+        loading={loading}
+        buildBody={(item) => ({
+          action: item.id,
+          edited_values: computeEdits(),
+        })}
+        onSubmit={onAction}
+      />
     </div>
   )
 }

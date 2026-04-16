@@ -1,12 +1,11 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, getFormData, detectHitlSubtype } from '../utils/hitl'
+import { getActionItems, getPendingIntervention, getFormData, detectHitlSubtype } from '../utils/hitl'
 import { getCustomerName, getTierFromTasks } from '../utils/status'
-import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
-import { formatDate } from '../utils/time'
+import { ActionButtons } from '../components/approvals/ActionButtons'
 
 export function QuoteConfirm() {
   const { jobId } = useParams<{ jobId: string }>()
@@ -36,7 +35,7 @@ export function QuoteConfirm() {
 
   const stepIndex = msg?.step_index ?? 2
   const totalSteps = msg?.total_steps ?? 3
-  const actionId = msg?.actions?.[0]?.id ?? 'approved'
+  const actionItems = getActionItems(pending)
   const customer = getCustomerName(job)
   const tier = getTierFromTasks(job)
   const cv = form?.current_values ?? {}
@@ -45,13 +44,8 @@ export function QuoteConfirm() {
   const priorEdits = (msg as unknown as Record<string, unknown>)?.prior_edits as
     | Array<{ step_index: number; step_name: string; action: string; edits?: Record<string, unknown> }> | null
 
-  async function handleApprove() {
-    await mutateAsync({ id: pending!.id, action: actionId })
-    navigate('/pipeline')
-  }
-
-  async function handleReject() {
-    await mutateAsync({ id: pending!.id, action: 'end' })
+  async function submitAction(body: import('../api/hitl').HITLActionRequest) {
+    await mutateAsync({ id: pending!.id, ...body })
     navigate('/pipeline')
   }
 
@@ -178,13 +172,13 @@ export function QuoteConfirm() {
       )}
 
       {/* Action bar */}
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', marginTop: 20 }}>
-        <Button variant="red-outline" disabled={isPending} onClick={handleReject}>
-          Reject
-        </Button>
-        <Button variant="green" loading={isPending} onClick={handleApprove}>
-          Approve & Continue
-        </Button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+        <ActionButtons
+          actions={actionItems}
+          loading={isPending}
+          buildBody={(item) => ({ action: item.id })}
+          onSubmit={submitAction}
+        />
       </div>
     </div>
   )

@@ -6,6 +6,8 @@ export interface HITLActionRequest {
   selected_candidate_id?: string
   candidate_edits?: Record<string, unknown>
   note?: string
+  // Free-text guidance for retrigger actions — steers the agent's re-execution
+  instruction?: string
 }
 
 export async function submitHitlAction(id: number, body: HITLActionRequest): Promise<void> {

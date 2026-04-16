@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, detectHitlSubtype } from '../utils/hitl'
+import { getPendingIntervention, detectHitlSubtype, getActionItems } from '../utils/hitl'
 import { getCustomerName, getInfoField, isPlatformJob } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
@@ -50,9 +50,8 @@ export function EmailPreview() {
         const pending = getPendingIntervention(data.interventions)
         const subtype = pending ? detectHitlSubtype(pending) : null
         const hasEmailAction =
-          pending?.interrupt_message?.actions?.some((a) => a.id === 'approved') ??
-          pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ??
-          false
+          getActionItems(pending).some((a) => a.id === 'approved' || a.id === 'send_email') ||
+          (pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ?? false)
         const ready = pending && (subtype === 'type3' || hasEmailAction)
 
         if (ready) {
@@ -130,9 +129,8 @@ export function EmailPreview() {
   const pending = getPendingIntervention(job.interventions)
   const subtype = pending ? detectHitlSubtype(pending) : null
   const hasEmailAction =
-    pending?.interrupt_message?.actions?.some((a) => a.id === 'approved') ??
-    pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ??
-    false
+    getActionItems(pending).some((a) => a.id === 'approved' || a.id === 'send_email') ||
+    (pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ?? false)
 
   if (timedOut || !pending || (subtype !== 'type3' && !hasEmailAction)) {
     return (

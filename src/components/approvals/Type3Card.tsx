@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
-import { getToolArgsData } from '../../utils/hitl'
+import { getActionItems, getToolArgsData } from '../../utils/hitl'
+import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 
@@ -24,21 +24,10 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
   const [editMode, setEditMode] = useState(false)
   const [subject, setSubject] = useState(toolArgs?.args.subject ?? '')
   const [message, setMessage] = useState(toolArgs?.args.message ?? '')
-  const [confirmSkip, setConfirmSkip] = useState(false)
 
   if (!toolArgs) return null
 
-  function handleApprove() {
-    onAction({ action: 'approved' })
-  }
-
-  function handleSkipRequest() {
-    setConfirmSkip(true)
-  }
-
-  function handleSkipConfirm() {
-    onAction({ action: 'skip' })
-  }
+  const actionItems = getActionItems(intervention)
 
   return (
     <div className="approval-card type-email">
@@ -125,33 +114,12 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
         )}
       </div>
 
-      {confirmSkip && (
-        <div style={{
-          background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6,
-          padding: '10px 14px', marginBottom: 12, fontSize: 13, color: '#991b1b',
-        }}>
-          Are you sure you want to skip sending this email? This action cannot be undone.
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <Button variant="red-outline" loading={loading} onClick={handleSkipConfirm}>
-              Yes, Don&apos;t Send
-            </Button>
-            <Button variant="ghost" disabled={loading} onClick={() => setConfirmSkip(false)}>
-              Cancel
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {!confirmSkip && (
-        <div className="approval-actions">
-          <Button variant="green" loading={loading} onClick={handleApprove}>
-            Send Email
-          </Button>
-          <Button variant="red-outline" disabled={loading} onClick={handleSkipRequest}>
-            Don&apos;t Send
-          </Button>
-        </div>
-      )}
+      <ActionButtons
+        actions={actionItems}
+        loading={loading}
+        buildBody={(item) => ({ action: item.id })}
+        onSubmit={onAction}
+      />
     </div>
   )
 }

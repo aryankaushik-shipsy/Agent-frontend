@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useJob } from '../hooks/useJob'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getFormData, getCandidateData, getPendingIntervention } from '../utils/hitl'
+import { getFormData, getCandidateData, getPendingIntervention, getActionItems } from '../utils/hitl'
 import { getTierFromTasks } from '../utils/status'
 import { findBestPriceIndex, findBestMarginIndex, getCarriersFromTask } from '../utils/carrier'
 import { getTierInfo } from '../utils/status'
@@ -118,7 +118,7 @@ export function QuoteBuilder() {
           selectedCarrier={selectedCarrier}
           selectedIndex={selectedIdx}
           interventionId={type2Int.id}
-          actionId={type2Int.interrupt_message?.actions?.[0]?.id ?? 'select'}
+          actionId={getActionItems(type2Int)[0]?.id ?? 'select'}
           selectedCandidateId={selectedCarrier ? String((selectedCarrier as unknown as Record<string, unknown>)[candidateData?.id_field ?? 'carrier'] ?? selectedCarrier.carrier) : ''}
           onConfirm={handleAction}
           onReject={() => handleAction('end')}

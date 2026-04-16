@@ -54,6 +54,20 @@ export interface ToolArgsData {
   ui_schema: Record<string, { description?: string; format?: string }>
 }
 
+export type ActionRoutingType = 'goto' | 'retrigger' | 'skip'
+export type ActionStyle = 'primary' | 'danger' | 'secondary' | 'success' | string
+
+// One button defined by the policy engine. `id` is the action id sent back in the
+// HITL action request; everything else controls how the dashboard presents it.
+export interface InterruptActionItem {
+  id: string
+  label: string
+  type?: ActionRoutingType
+  style?: ActionStyle
+  confirm_required?: boolean
+  confirm_message?: string | null
+}
+
 export interface HITLInterruptPayload {
   interaction_type: HitlInteractionType[]
   step_index?: number | null
@@ -63,7 +77,11 @@ export interface HITLInterruptPayload {
     candidate_selection?: CandidateSelectionData
     tool_args?: ToolArgsData
   }
-  actions?: Array<{ id: string; label: string; type?: string; style?: string }>
+  // Prefer actions.items (policy engine shape). `actions` stays as a bare array
+  // for backward compat with earlier payloads.
+  actions?:
+    | InterruptActionItem[]
+    | { items: InterruptActionItem[]; source?: string }
   context?: {
     confidence_score?: number
     summary?: string

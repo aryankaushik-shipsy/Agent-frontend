@@ -1,12 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime, formatDate } from '../../utils/time'
 import { getTierInfo, getCustomerName } from '../../utils/status'
-import { getCandidateData, getFormData } from '../../utils/hitl'
+import { getActionItems, getCandidateData, getFormData } from '../../utils/hitl'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
+import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 import type { CandidateOption } from '../../types/hitl'
@@ -29,16 +29,11 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const msg = intervention.interrupt_message
   const stepIndex = msg?.step_index ?? 0
   const totalSteps = msg?.total_steps ?? 2
-  const actionId = msg?.actions?.[0]?.id ?? 'select'
+  const actionItems = getActionItems(intervention)
 
   if (!candidateData) return null
 
   const { options, id_field } = candidateData
-
-  function handleSelect() {
-    if (!selectedId) return
-    onAction({ action: actionId, selected_candidate_id: selectedId })
-  }
 
   return (
     <div className="approval-card">
@@ -125,11 +120,16 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         })}
       </div>
 
-      <div className="approval-actions">
-        <Button variant="green" loading={loading} disabled={!selectedId} onClick={handleSelect}>
-          Select Carrier
-        </Button>
-      </div>
+      <ActionButtons
+        actions={actionItems}
+        loading={loading}
+        disabled={() => !selectedId}
+        buildBody={(item) => ({
+          action: item.id,
+          selected_candidate_id: selectedId ?? '',
+        })}
+        onSubmit={onAction}
+      />
     </div>
   )
 }
@@ -249,11 +249,12 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         })}
       </div>
 
-      <div className="approval-actions">
-        <Button variant="green" loading={loading} onClick={() => onAction({ action: 'confirmed', edited_values: computeEdits() })}>
-          Confirm &amp; Generate Quotation
-        </Button>
-      </div>
+      <ActionButtons
+        actions={getActionItems(intervention)}
+        loading={loading}
+        buildBody={(item) => ({ action: item.id, edited_values: computeEdits() })}
+        onSubmit={onAction}
+      />
     </div>
   )
 }
@@ -267,7 +268,7 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const msg = intervention.interrupt_message
   const stepIndex = msg?.step_index ?? 2
   const totalSteps = msg?.total_steps ?? 3
-  const actionId = msg?.actions?.[0]?.id ?? 'approved'
+  const actionItems = getActionItems(intervention)
 
   const cv = form?.current_values ?? {}
   const carrierName = cv.carrier as string | undefined
@@ -338,14 +339,12 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         )}
       </div>
 
-      <div className="approval-actions">
-        <Button variant="red-outline" disabled={loading} onClick={() => onAction({ action: 'end' })}>
-          Reject
-        </Button>
-        <Button variant="green" loading={loading} onClick={() => onAction({ action: actionId })}>
-          Approve
-        </Button>
-      </div>
+      <ActionButtons
+        actions={actionItems}
+        loading={loading}
+        buildBody={(item) => ({ action: item.id })}
+        onSubmit={onAction}
+      />
     </div>
   )
 }
