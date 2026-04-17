@@ -7,6 +7,7 @@ import { getActionItems, getToolArgsData } from '../../utils/hitl'
 import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
+import type { ToolArgUiHint } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -15,19 +16,50 @@ interface Props {
   loading: boolean
 }
 
+/** Derive a human-readable label for an arg key from ui_schema or fall back to Title Case. */
+function labelFor(key: string, hint?: ToolArgUiHint): string {
+  if (hint?.label) return hint.label
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** HTML-formatted args render in an iframe preview (with an edit-mode toggle to textarea). */
+function isHtmlFormat(hint?: ToolArgUiHint): boolean {
+  return hint?.format === 'html'
+}
+
 export function Type3Card({ job, intervention, onAction, loading }: Props) {
   const navigate = useNavigate()
   const customer = getCustomerName(job)
   const toolArgs = getToolArgsData(intervention)
   const summary = intervention.interrupt_message?.context?.summary
 
-  const [editMode, setEditMode] = useState(false)
-  const [subject, setSubject] = useState(toolArgs?.args.subject ?? '')
-  const [message, setMessage] = useState(toolArgs?.args.message ?? '')
+  // Editable arg keys come from the policy, not the dashboard. Seed local edit
+  // state with the agent-generated values so "no change" == original.
+  const originalArgs = toolArgs?.args ?? {}
+  const argKeys = Object.keys(originalArgs)
+  const uiSchema = toolArgs?.ui_schema ?? {}
+
+  const [values, setValues] = useState<Record<string, unknown>>({ ...originalArgs })
+  const [editMode, setEditMode] = useState<Record<string, boolean>>({})
 
   if (!toolArgs) return null
 
   const actionItems = getActionItems(intervention)
+
+  function setValue(key: string, v: unknown) {
+    setValues((prev) => ({ ...prev, [key]: v }))
+  }
+  function toggleEdit(key: string) {
+    setEditMode((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  function computeEdits(): Record<string, unknown> {
+    const edits: Record<string, unknown> = {}
+    for (const key of argKeys) {
+      if (values[key] !== originalArgs[key]) edits[key] = values[key]
+    }
+    return edits
+  }
 
   return (
     <div className="approval-card type-email">
@@ -64,60 +96,91 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
         </div>
       )}
 
-      {/* Subject */}
-      <div className="hitl-form-row" style={{ marginBottom: 12 }}>
-        <label className="hitl-form-label">Subject</label>
-        {editMode ? (
-          <input
-            className="hitl-form-input"
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          />
-        ) : (
-          <span className="hitl-form-static">{subject || '—'}</span>
-        )}
-      </div>
+      {/* Render each editable arg exposed by the policy */}
+      {argKeys.map((key) => {
+        const hint = uiSchema[key]
+        const html = isHtmlFormat(hint)
+        const isEditing = editMode[key] ?? false
+        const value = values[key]
 
-      {/* Email body */}
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <span className="hitl-form-label">Email Body</span>
-          <button
-            onClick={() => setEditMode((v) => !v)}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
-              textDecoration: 'underline', textUnderlineOffset: 2,
-            }}
-          >
-            {editMode ? 'Preview' : 'Edit'}
-          </button>
-        </div>
-        {editMode ? (
-          <textarea
-            className="hitl-form-input"
-            style={{ width: '100%', minHeight: 200, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-          />
-        ) : (
-          <iframe
-            sandbox="allow-same-origin"
-            srcDoc={message}
-            style={{
-              width: '100%', height: 240, border: '1px solid var(--gray-200)',
-              borderRadius: 6, background: '#fff',
-            }}
-            title="Email preview"
-          />
-        )}
-      </div>
+        if (html) {
+          // HTML body — iframe preview with a Preview ⇄ Edit toggle per field
+          return (
+            <div key={key} style={{ marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span className="hitl-form-label">{labelFor(key, hint)}</span>
+                <button
+                  onClick={() => toggleEdit(key)}
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
+                    textDecoration: 'underline', textUnderlineOffset: 2,
+                  }}
+                >
+                  {isEditing ? 'Preview' : 'Edit'}
+                </button>
+              </div>
+              {isEditing ? (
+                <textarea
+                  className="hitl-form-input"
+                  style={{ width: '100%', minHeight: 200, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => setValue(key, e.target.value)}
+                />
+              ) : (
+                <iframe
+                  sandbox="allow-same-origin"
+                  srcDoc={value != null ? String(value) : ''}
+                  style={{
+                    width: '100%', height: 240, border: '1px solid var(--gray-200)',
+                    borderRadius: 6, background: '#fff',
+                  }}
+                  title={labelFor(key, hint)}
+                />
+              )}
+              {hint?.description && (
+                <div style={{ fontSize: 11, color: 'var(--gray-500)', marginTop: 4 }}>{hint.description}</div>
+              )}
+            </div>
+          )
+        }
+
+        // Plain string arg — single-line input (or multi-line if the hint says so)
+        const multiline = hint?.multiline === true
+        return (
+          <div key={key} className="hitl-form-row" style={{ marginBottom: 10 }}>
+            <label className="hitl-form-label">{labelFor(key, hint)}</label>
+            {multiline ? (
+              <textarea
+                className="hitl-form-input"
+                style={{ width: '100%', minHeight: 80 }}
+                value={value != null ? String(value) : ''}
+                onChange={(e) => setValue(key, e.target.value)}
+              />
+            ) : (
+              <input
+                className="hitl-form-input"
+                type="text"
+                value={value != null ? String(value) : ''}
+                onChange={(e) => setValue(key, e.target.value)}
+              />
+            )}
+          </div>
+        )
+      })}
 
       <ActionButtons
         actions={actionItems}
         loading={loading}
-        buildBody={(item) => ({ action: item.id })}
+        buildBody={(item) => {
+          // Only goto-typed actions forward edited args. skip-typed actions
+          // bypass the tool entirely, so edits are ignored.
+          if (item.type !== 'goto') return { action: item.id }
+          const edits = computeEdits()
+          return Object.keys(edits).length > 0
+            ? { action: item.id, edited_values: edits }
+            : { action: item.id }
+        }}
         onSubmit={onAction}
       />
     </div>

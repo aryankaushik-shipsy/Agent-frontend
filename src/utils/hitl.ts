@@ -1,5 +1,6 @@
 import type { Intervention } from '../types/job'
 import type { HitlSubtype, FormData, CandidateSelectionData, ToolArgsData, InterruptActionItem } from '../types/hitl'
+import { formatDate } from './time'
 
 export function detectHitlSubtype(intervention: Intervention): HitlSubtype | null {
   const msg = intervention.interrupt_message
@@ -41,6 +42,43 @@ export function getPendingIntervention(interventions: Intervention[] | undefined
 
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim()
+}
+
+/** Prettify a snake_case key as a label — used when ui_schema/schema doesn't give us one. */
+export function humanizeKey(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/**
+ * Render a candidate / form value for display based on field-name heuristics
+ * plus any currency code present on the owning object. Keeps the dashboard
+ * policy-agnostic — the payload drives which fields exist, this only decides
+ * how to present them when we don't have explicit schema hints.
+ */
+export function formatFieldValue(key: string, value: unknown, owner?: Record<string, unknown>): string {
+  if (value == null || value === '') return '—'
+  // Date-ish
+  if (key.endsWith('_date') || key === 'date' || key === 'validity_date') {
+    return formatDate(String(value))
+  }
+  // Percent-ish
+  if (key.endsWith('_pct')) return `${Number(value)}%`
+  // Money-ish — prefix with owner's currency_code when present
+  if (
+    key === 'grand_total' ||
+    key === 'subtotal' ||
+    key === 'subtotal_before_markup' ||
+    key.endsWith('_amount') ||
+    key.endsWith('_total')
+  ) {
+    const num = Number(value)
+    if (!Number.isFinite(num)) return String(value)
+    const ccy = owner && typeof owner.currency_code === 'string' ? owner.currency_code : null
+    return ccy ? `${ccy} ${num.toLocaleString()}` : num.toLocaleString()
+  }
+  // Numbers — thousands separator, no currency
+  if (typeof value === 'number') return value.toLocaleString()
+  return String(value)
 }
 
 /**

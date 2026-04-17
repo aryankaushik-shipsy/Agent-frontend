@@ -2,12 +2,13 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, detectHitlSubtype, getActionItems } from '../utils/hitl'
+import { getPendingIntervention, detectHitlSubtype, getActionItems, getToolArgsData } from '../utils/hitl'
 import { getCustomerName, getInfoField, isPlatformJob } from '../utils/status'
 import { getJobById } from '../api/jobs'
-import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
+import { ActionButtons } from '../components/approvals/ActionButtons'
 import type { JobDetail } from '../types/job'
+import type { HITLActionRequest } from '../api/hitl'
 
 const POLL_INTERVAL_MS = 5_000   // poll every 5 s
 const MAX_WAIT_MS      = 60_000  // give up after 60 s
@@ -22,6 +23,11 @@ export function EmailPreview() {
   const [loadError, setLoadError] = useState(false)
   const [timedOut,  setTimedOut]  = useState(false)
   const [elapsed,   setElapsed]   = useState(0)   // seconds shown in UI
+  // Editable tool_args — the policy decides which keys are exposed. Local
+  // edits are keyed by arg name and compared against the original values to
+  // compute `edited_values` on submit.
+  const [argEdits, setArgEdits] = useState<Record<string, unknown>>({})
+  const [editMode, setEditMode] = useState(false)
 
   const startedAt  = useRef(Date.now())
   const pollRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -128,11 +134,8 @@ export function EmailPreview() {
 
   const pending = getPendingIntervention(job.interventions)
   const subtype = pending ? detectHitlSubtype(pending) : null
-  const hasEmailAction =
-    getActionItems(pending).some((a) => a.id === 'approved' || a.id === 'send_email') ||
-    (pending?.interrupt?.actions?.some((a) => a.id === 'send_email') ?? false)
 
-  if (timedOut || !pending || (subtype !== 'type3' && !hasEmailAction)) {
+  if (timedOut || !pending || subtype !== 'type3') {
     return (
       <div className="banner banner-yellow">
         <div className="banner-content">This job is not in Email Preview stage.</div>
@@ -140,10 +143,15 @@ export function EmailPreview() {
     )
   }
 
-  // Prefer new structured payload; fall back to legacy ai_response
-  const emailHtml =
-    pending.interrupt_message?.data?.tool_args?.args?.message ??
-    (typeof pending.interrupt?.details?.ai_response === 'string' ? pending.interrupt.details.ai_response : '')
+  // All editable tool args come from the policy via the interrupt payload.
+  // Dashboard doesn't assume any particular key name (e.g. subject/message) —
+  // the policy might declare different keys for different tools.
+  const toolArgs = getToolArgsData(pending)
+  const originalArgs = toolArgs?.args ?? {}
+  const uiSchema = toolArgs?.ui_schema ?? {}
+  const argKeys = Object.keys(originalArgs)
+  const getVal = (k: string) => (k in argEdits ? argEdits[k] : originalArgs[k])
+
   const summary =
     pending.interrupt_message?.context?.summary ??
     pending.interrupt?.details?.summary
@@ -156,11 +164,16 @@ export function EmailPreview() {
     job.input_json?.sender_email ??
     customer
 
-  async function handleAction(action: string) {
+  const actionItems = getActionItems(pending)
+
+  async function handleSubmit(body: HITLActionRequest) {
     if (!pending) return
-    await mutateAsync({ id: pending.id, action })
-    if (action === 'send_email') {
-      // Bust the thread cache so the audit trail refetches immediately
+    await mutateAsync({ id: pending.id, ...body })
+    // Action routing type determines post-submit navigation:
+    //   goto  → tool runs, email sends → go to audit trail
+    //   skip  → tool bypassed, workflow ends → go back to pipeline
+    const item = actionItems.find((a) => a.id === body.action)
+    if (item?.type === 'goto') {
       if (job!.ticket_id) {
         queryClient.invalidateQueries({ queryKey: ['thread', job!.ticket_id] })
       }
@@ -205,34 +218,117 @@ export function EmailPreview() {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-          <span className="ai-tag">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
-            </svg>
-            AI Generated
-          </span>
-          <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>Preview only — no changes can be made</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="ai-tag">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" />
+              </svg>
+              AI Generated
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--gray-500)' }}>
+              {editMode ? 'Editing — changes are sent with approval' : 'Preview — click Edit to make changes'}
+            </span>
+          </div>
+          <button
+            onClick={() => setEditMode((v) => !v)}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
+              textDecoration: 'underline', textUnderlineOffset: 2,
+            }}
+          >
+            {editMode ? 'Preview' : 'Edit'}
+          </button>
         </div>
 
-        <div className="email-preview-box">
-          <iframe
-            className="email-preview-iframe"
-            sandbox="allow-same-origin"
-            srcDoc={emailHtml}
-            title="Email Preview"
-          />
-        </div>
+        {/* Render each editable tool arg from the policy's ui_schema. Non-HTML
+            args are rendered as plain inputs; HTML args are shown as an iframe
+            preview, swapped for a textarea when edit mode is on. */}
+        {argKeys.map((key) => {
+          const hint = uiSchema[key]
+          const label = hint?.label ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+          const isHtml = hint?.format === 'html'
+          const value = getVal(key)
+          const strVal = value != null ? String(value) : ''
+
+          if (isHtml) {
+            return editMode ? (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <label className="hitl-form-label" style={{ display: 'block', marginBottom: 6 }}>{label}</label>
+                <textarea
+                  className="hitl-form-input"
+                  style={{ width: '100%', minHeight: 240, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+                  value={strVal}
+                  onChange={(e) => setArgEdits((prev) => ({ ...prev, [key]: e.target.value }))}
+                />
+              </div>
+            ) : (
+              <div key={key} className="email-preview-box">
+                <iframe
+                  className="email-preview-iframe"
+                  sandbox="allow-same-origin"
+                  srcDoc={strVal}
+                  title={label}
+                />
+              </div>
+            )
+          }
+
+          const multiline = hint?.multiline === true
+          return (
+            <div key={key} className="hitl-form-row" style={{ marginBottom: 10 }}>
+              <label className="hitl-form-label">{label}</label>
+              {editMode ? (
+                multiline ? (
+                  <textarea
+                    className="hitl-form-input"
+                    style={{ width: '100%', minHeight: 80 }}
+                    value={strVal}
+                    onChange={(e) => setArgEdits((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                ) : (
+                  <input
+                    className="hitl-form-input"
+                    type="text"
+                    value={strVal}
+                    onChange={(e) => setArgEdits((prev) => ({ ...prev, [key]: e.target.value }))}
+                  />
+                )
+              ) : (
+                <span className="hitl-form-static">{strVal || '—'}</span>
+              )}
+            </div>
+          )
+        })}
       </div>
 
-      <div style={{ display: 'flex', gap: 10 }}>
-        <Button variant="green" loading={isPending} onClick={() => handleAction('send_email')}>
-          Send Email
-        </Button>
-        <Button variant="red-outline" disabled={isPending} onClick={() => handleAction('end')}>
-          Cancel
-        </Button>
-      </div>
+      {actionItems.length > 0 ? (
+        <ActionButtons
+          actions={actionItems}
+          loading={isPending}
+          buildBody={(item) => {
+            // Per policy, only goto-typed actions forward edited tool args.
+            // skip-typed actions bypass the tool entirely, so edits are dropped.
+            if (item.type !== 'goto') return { action: item.id }
+            const edits: Record<string, unknown> = {}
+            for (const key of Object.keys(argEdits)) {
+              if (argEdits[key] !== originalArgs[key]) edits[key] = argEdits[key]
+            }
+            return Object.keys(edits).length > 0
+              ? { action: item.id, edited_values: edits }
+              : { action: item.id }
+          }}
+          onSubmit={handleSubmit}
+        />
+      ) : (
+        // Safety net for payloads that omit an actions array entirely.
+        // The dashboard cannot invent policy-specific action ids, so this
+        // just surfaces an error rather than guessing.
+        <div className="banner banner-yellow">
+          <div className="banner-content">No actions available for this intervention.</div>
+        </div>
+      )}
     </div>
   )
 }

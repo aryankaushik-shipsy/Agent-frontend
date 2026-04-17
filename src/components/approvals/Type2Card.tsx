@@ -1,15 +1,15 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
-import { formatRelativeTime, formatDate } from '../../utils/time'
+import { formatRelativeTime } from '../../utils/time'
 import { getTierInfo, getCustomerName } from '../../utils/status'
-import { getActionItems, getCandidateData, getFormData } from '../../utils/hitl'
+import { getActionItems, getCandidateData, getFormData, formatFieldValue, humanizeKey } from '../../utils/hitl'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
-import type { CandidateOption } from '../../types/hitl'
+import type { CandidateOption, InterruptActionItem } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -25,15 +25,54 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const navigate = useNavigate()
   const customer = getCustomerName(job)
   const candidateData = getCandidateData(intervention)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const msg = intervention.interrupt_message
-  const stepIndex = msg?.step_index ?? 0
-  const totalSteps = msg?.total_steps ?? 2
+  const ctx = msg?.context ?? {}
+  const constraints = msg?.constraints ?? {}
   const actionItems = getActionItems(intervention)
+
+  // Everything in the header/body derives from the interrupt payload.
+  const title        = msg?.title ?? 'Select Carrier'
+  const description  = msg?.description
+  const recommendation = ctx.recommendation
+  const summary      = ctx.summary
+  const showRec      = constraints.show_ai_recommendation !== false
+  const stepIndex    = msg?.step_index ?? 0
+  const totalSteps   = msg?.total_steps ?? 1
+
+  const noteLabel     = constraints.note_label ?? 'Note (optional)'
+  const requireNote   = constraints.require_note === true
+  const noteMaxLength = constraints.note_max_length ?? undefined
+
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [note, setNote] = useState('')
+  // Per-candidate edits keyed by id_field value. Only populated when the
+  // chosen action declares `candidates.editable_fields` and the user edits
+  // one of those fields on the currently-selected row.
+  const [candidateEdits, setCandidateEdits] = useState<Record<string, unknown>>({})
 
   if (!candidateData) return null
 
-  const { options, id_field } = candidateData
+  const { options, id_field, display_fields } = candidateData
+
+  // Secondary fields to render on each card (skip id_field — it's the title).
+  const metaFields = (display_fields ?? []).filter((f) => f !== id_field)
+
+  function buildBody(item: InterruptActionItem): HITLActionRequest {
+    const body: HITLActionRequest = { action: item.id }
+    if (selectedId) body.selected_candidate_id = selectedId
+    const trimmed = note.trim()
+    if (trimmed) body.note = trimmed
+    if (Object.keys(candidateEdits).length > 0) body.candidate_edits = candidateEdits
+    return body
+  }
+
+  function isDisabled(item: InterruptActionItem): boolean {
+    // Policy-declared candidate requirement drives the disabled state —
+    // no more hardcoded "must select something before submit".
+    if (item.candidates?.required && !selectedId) return true
+    if (requireNote && note.trim().length === 0) return true
+    return false
+  }
 
   return (
     <div className="approval-card">
@@ -42,11 +81,13 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
           <div className="approval-title">
             #RFQ-{job.id}
             <span style={{ marginLeft: 8 }}>
-              <Badge variant="yellow" dot={false}>Select Carrier</Badge>
+              <Badge variant="yellow" dot={false}>{title}</Badge>
             </span>
-            <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--gray-500)', fontWeight: 400 }}>
-              Step {stepIndex + 1} of {totalSteps}
-            </span>
+            {totalSteps > 1 && (
+              <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--gray-500)', fontWeight: 400 }}>
+                Step {stepIndex + 1} of {totalSteps}
+              </span>
+            )}
           </div>
           <div className="approval-sub">{customer}</div>
         </div>
@@ -67,16 +108,27 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         </div>
       </div>
 
-      {msg?.context?.recommendation && (
-        <div className="approval-rec">{msg.context.recommendation}</div>
+      {description && (
+        <div style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 10, lineHeight: 1.5 }}>
+          {description}
+        </div>
+      )}
+
+      {showRec && (recommendation || summary) && (
+        <div className="approval-rec">{recommendation ?? summary}</div>
       )}
 
       <div className="carrier-option-grid">
-        {options.map((carrier: CandidateOption) => {
-          const id = String(carrier[id_field as keyof CandidateOption] ?? '')
+        {options.map((candidate: CandidateOption) => {
+          const owner = candidate as unknown as Record<string, unknown>
+          const id = String(owner[id_field] ?? '')
           const isSelected = selectedId === id
-          const hasDiscount = carrier.discount != null
-          const aboveThreshold = isAboveThreshold(carrier.grand_total)
+          const titleValue = String(owner[id_field] ?? '')
+          // "Above $5K" flag is an org-level business rule, not a policy hint —
+          // keep it only if the policy's display_fields includes grand_total.
+          const showFlag = metaFields.includes('grand_total') &&
+            typeof owner.grand_total === 'number' &&
+            isAboveThreshold(owner.grand_total)
 
           return (
             <button
@@ -85,49 +137,94 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
               onClick={() => setSelectedId(id)}
             >
               <div className="carrier-option-name">
-                {carrier.carrier}
-                {aboveThreshold && (
+                {titleValue}
+                {showFlag && (
                   <span style={{ marginLeft: 6 }}>
                     <Badge variant="red" dot={false}>Above $5K</Badge>
                   </span>
                 )}
               </div>
 
-              {hasDiscount && carrier.discount ? (
-                <div className="carrier-option-price">
-                  <span style={{ textDecoration: 'line-through', color: 'var(--gray-400)', fontSize: 13 }}>
-                    {carrier.currency_code} {carrier.discount.original_grand_total?.toLocaleString() ?? carrier.grand_total?.toLocaleString()}
-                  </span>
-                  <span style={{ color: '#dc2626', fontSize: 12 }}>
-                    −{carrier.discount.discount_pct?.toFixed(1)}%
-                  </span>
-                  <span style={{ fontWeight: 700, fontSize: 15 }}>
-                    {carrier.currency_code} {carrier.discount.adjusted_grand_total?.toLocaleString()}
-                  </span>
-                </div>
-              ) : (
-                <div className="carrier-option-price" style={{ fontWeight: 700, fontSize: 15 }}>
-                  {carrier.currency_code} {carrier.grand_total?.toLocaleString() ?? '—'}
-                </div>
-              )}
-
-              <div className="carrier-option-meta">
-                <span>Transit: {carrier.transit_days != null ? `${carrier.transit_days}d` : '—'}</span>
-                <span>Valid: {carrier.validity_date ? formatDate(carrier.validity_date) : '—'}</span>
-              </div>
+              {metaFields.map((field) => {
+                // currency_code is folded into the corresponding money value by
+                // formatFieldValue — don't render it as a separate row.
+                if (field === 'currency_code') return null
+                return (
+                  <div key={field} className="carrier-option-meta-row" style={{ fontSize: 12, color: 'var(--gray-500)', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{humanizeKey(field)}</span>
+                    <span style={{ color: 'var(--gray-800)' }}>
+                      {formatFieldValue(field, owner[field], owner)}
+                    </span>
+                  </div>
+                )
+              })}
             </button>
           )
         })}
       </div>
 
+      {/* Editable fields on the selected candidate, if the policy allows any */}
+      {selectedId && actionItems.some((a) => (a.candidates?.editable_fields?.length ?? 0) > 0) && (
+        <div className="hitl-form" style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 6 }}>
+            Edit the selected candidate before confirming:
+          </div>
+          {actionItems
+            .flatMap((a) => a.candidates?.editable_fields ?? [])
+            .filter((f, i, arr) => arr.indexOf(f) === i)
+            .map((field) => {
+              const selected = options.find(
+                (o) => String((o as unknown as Record<string, unknown>)[id_field]) === selectedId
+              ) as Record<string, unknown> | undefined
+              const original = selected?.[field]
+              const current = candidateEdits[field] ?? original
+              return (
+                <div key={field} className="hitl-form-row">
+                  <label className="hitl-form-label">{humanizeKey(field)}</label>
+                  <input
+                    className="hitl-form-input"
+                    type={typeof original === 'number' ? 'number' : 'text'}
+                    value={current != null ? String(current) : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const next = typeof original === 'number'
+                        ? (raw === '' ? null : Number(raw))
+                        : raw
+                      setCandidateEdits((prev) => {
+                        if (next === original) {
+                          const { [field]: _removed, ...rest } = prev
+                          return rest
+                        }
+                        return { ...prev, [field]: next }
+                      })
+                    }}
+                  />
+                </div>
+              )
+            })}
+        </div>
+      )}
+
+      <div className="hitl-form-row" style={{ marginTop: 10 }}>
+        <label className="hitl-form-label">
+          {noteLabel}
+          {requireNote && <span style={{ color: '#dc2626', marginLeft: 4 }}>*</span>}
+        </label>
+        <input
+          className="hitl-form-input"
+          type="text"
+          value={note}
+          maxLength={noteMaxLength}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={requireNote ? 'Required' : 'Optional context for the audit trail'}
+        />
+      </div>
+
       <ActionButtons
         actions={actionItems}
         loading={loading}
-        disabled={() => !selectedId}
-        buildBody={(item) => ({
-          action: item.id,
-          selected_candidate_id: selectedId ?? '',
-        })}
+        disabled={isDisabled}
+        buildBody={buildBody}
         onSubmit={onAction}
       />
     </div>
@@ -140,16 +237,36 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const navigate = useNavigate()
   const customer = getCustomerName(job)
   const form = getFormData(intervention)
-  const tierInfo = getTierInfo(job)
-  const tier = tierInfo?.tierLabel ?? '—'
-  const tierMin = TIER_MINIMUMS[tier] ?? 5
   const msg = intervention.interrupt_message
-  const stepIndex = msg?.step_index ?? 1
-  const totalSteps = msg?.total_steps ?? 2
+  const ctx = msg?.context ?? {}
+  const constraints = msg?.constraints ?? {}
+  const actionItems = getActionItems(intervention)
+
+  // Everything — title, description, field schema, constraints — comes from
+  // the payload. Business rules like tier min% / "Above $5K" flags aren't in
+  // the policy, so they're not rendered here (the dedicated QuoteEditForm
+  // page surfaces those contextual chips instead).
+  const title        = msg?.title ?? 'Review Pricing'
+  const description  = msg?.description
+  const summary      = ctx.summary
+  const recommendation = ctx.recommendation
+  const confidence   = ctx.confidence_score
+  const showRec      = constraints.show_ai_recommendation !== false
+  const stepIndex    = msg?.step_index ?? 1
+  const totalSteps   = msg?.total_steps ?? 1
+
+  const noteLabel     = constraints.note_label ?? 'Note (optional)'
+  const requireNote   = constraints.require_note === true
+  const noteMaxLength = constraints.note_max_length ?? undefined
+
+  const retriggersUsed = constraints.retriggers_used ?? 0
+  const maxRetriggers  = constraints.max_retrigger_attempts ?? Infinity
+  const retriggerExhausted = retriggersUsed >= maxRetriggers
 
   const [values, setValues] = useState<Record<string, unknown>>(
     () => ({ ...(form?.current_values ?? {}) })
   )
+  const [note, setNote] = useState('')
 
   if (!form) return null
 
@@ -168,8 +285,24 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
     return edits
   }
 
-  const carrierName = values.carrier as string | undefined
-  const grandTotal = values.grand_total as number | null | undefined
+  function buildBody(item: InterruptActionItem): HITLActionRequest {
+    const body: HITLActionRequest = { action: item.id }
+    const edits = computeEdits()
+    if (Object.keys(edits).length > 0) body.edited_values = edits
+    const trimmed = note.trim()
+    if (trimmed) body.note = trimmed
+    return body
+  }
+
+  function isDisabled(item: InterruptActionItem): boolean {
+    if (item.type === 'retrigger' && retriggerExhausted) return true
+    if (requireNote && note.trim().length === 0) return true
+    return false
+  }
+
+  // Derive the carrier name from whichever field in the schema looks like it
+  // identifies the candidate (fallback: a field literally named "carrier").
+  const carrierName = (values.carrier as string | undefined) ?? undefined
 
   return (
     <div className="approval-card">
@@ -178,11 +311,18 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
           <div className="approval-title">
             #RFQ-{job.id}
             <span style={{ marginLeft: 8 }}>
-              <Badge variant="yellow" dot={false}>Review Pricing</Badge>
+              <Badge variant="yellow" dot={false}>{title}</Badge>
             </span>
-            <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--gray-500)', fontWeight: 400 }}>
-              Step {stepIndex + 1} of {totalSteps}
-            </span>
+            {totalSteps > 1 && (
+              <span style={{ marginLeft: 6, fontSize: 12, color: 'var(--gray-500)', fontWeight: 400 }}>
+                Step {stepIndex + 1} of {totalSteps}
+              </span>
+            )}
+            {confidence != null && confidence < 1 && (
+              <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--gray-500)', fontWeight: 400 }}>
+                confidence {Math.round(confidence * 100)}%
+              </span>
+            )}
           </div>
           <div className="approval-sub">
             {customer}{carrierName ? ` · ${carrierName}` : ''}
@@ -205,54 +345,115 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         </div>
       </div>
 
-      <div className="approval-meta">
-        <div className="approval-meta-item">
-          <span className="approval-meta-label">Customer Tier</span>
-          <span className="approval-meta-value">{tier} (min {tierMin}%)</span>
+      {description && (
+        <div style={{ fontSize: 13, color: 'var(--gray-600)', marginBottom: 10, lineHeight: 1.5 }}>
+          {description}
         </div>
-        {grandTotal != null && isAboveThreshold(grandTotal) && (
-          <div className="approval-meta-item">
-            <span className="approval-meta-label">Flag</span>
-            <span className="approval-meta-value">
-              <Badge variant="red" dot={false}>Above $5K</Badge>
-            </span>
-          </div>
-        )}
-      </div>
+      )}
 
       <div className="hitl-form">
         {form.schema.map((field) => {
           const value = values[field.key]
+          const options = field.options ?? form.resolved_options[field.key]
 
           if (!field.editable) {
+            // formatFieldValue picks up currency_code from current_values
+            // to render grand_total/subtotal/vat_amount as "USD 1,058.75".
             return (
               <div key={field.key} className="hitl-form-row">
                 <label className="hitl-form-label">{field.label}</label>
                 <span className="hitl-form-static">
-                  {value != null ? String(value) : '—'}
+                  {formatFieldValue(field.key, value, form!.current_values)}
                 </span>
               </div>
             )
           }
 
+          const commonInput = (
+            <>
+              {field.type === 'select' && options ? (
+                <select
+                  className="hitl-form-select"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                >
+                  <option value="">—</option>
+                  {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+              ) : field.type === 'number' ? (
+                <input
+                  className="hitl-form-input"
+                  type="number"
+                  min={field.min ?? undefined}
+                  max={field.max ?? undefined}
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value === '' ? null : Number(e.target.value))}
+                />
+              ) : field.type === 'date' ? (
+                <input
+                  className="hitl-form-input"
+                  type="date"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                />
+              ) : (
+                <input
+                  className="hitl-form-input"
+                  type="text"
+                  value={value != null ? String(value) : ''}
+                  onChange={(e) => handleChange(field.key, e.target.value)}
+                />
+              )}
+            </>
+          )
+
           return (
             <div key={field.key} className="hitl-form-row">
-              <label className="hitl-form-label">{field.label}</label>
-              <input
-                className="hitl-form-input"
-                type="number"
-                value={value != null ? String(value) : ''}
-                onChange={(e) => handleChange(field.key, e.target.value === '' ? null : Number(e.target.value))}
-              />
+              <label className="hitl-form-label" title={field.description ?? undefined}>
+                {field.label}
+              </label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {commonInput}
+                {field.description && (
+                  <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
+                )}
+              </div>
             </div>
           )
         })}
       </div>
 
+      {showRec && (recommendation || summary) && (
+        <div className="approval-rec">{recommendation ?? summary}</div>
+      )}
+
+      <div className="hitl-form-row" style={{ marginTop: 10 }}>
+        <label className="hitl-form-label">
+          {noteLabel}
+          {requireNote && <span style={{ color: '#dc2626', marginLeft: 4 }}>*</span>}
+        </label>
+        <input
+          className="hitl-form-input"
+          type="text"
+          value={note}
+          maxLength={noteMaxLength}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={requireNote ? 'Required' : 'Optional context for the audit trail'}
+        />
+      </div>
+
+      {maxRetriggers !== Infinity && retriggersUsed > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--gray-500)', marginTop: 6 }}>
+          Retriggers used: {retriggersUsed} / {maxRetriggers}
+          {retriggerExhausted && <span style={{ color: '#dc2626', marginLeft: 6 }}>— cap reached</span>}
+        </div>
+      )}
+
       <ActionButtons
-        actions={getActionItems(intervention)}
+        actions={actionItems}
         loading={loading}
-        buildBody={(item) => ({ action: item.id, edited_values: computeEdits() })}
+        disabled={isDisabled}
+        buildBody={buildBody}
         onSubmit={onAction}
       />
     </div>
