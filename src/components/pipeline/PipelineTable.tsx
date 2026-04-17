@@ -123,45 +123,59 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                 {formatRelativeTime(job.created_at)}
               </td>
               <td>
-                {subtype === 'type1' && (
-                  <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Review
-                  </Button>
-                )}
-                {subtype === 'type2_step0' && (
-                  <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    View Quote
-                  </Button>
-                )}
-                {subtype === 'type2_step1' && (
-                  <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/edit`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Review Pricing
-                  </Button>
-                )}
-                {subtype === 'type2_step2' && (
-                  <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/confirm`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Approve
-                  </Button>
-                )}
-                {subtype === 'type3' && (
-                  <Button variant="ghost" onClick={() => navigate(`/approvals`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    Review Email
-                  </Button>
-                )}
-                {job.status === 'success' && (
-                  <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    View Trail
-                  </Button>
-                )}
-                {(job.status === 'running' || job.status === 'queued') && !subtype && (
-                  <Spinner size="sm" />
-                )}
-                {/* Fallback for interrupted / failed / awaiting-ack */}
-                {!subtype && job.status !== 'success' && job.status !== 'running' && job.status !== 'queued' && (
-                  <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
-                    View Trail
-                  </Button>
-                )}
+                {(() => {
+                  // HITL action buttons are only valid while the job is actively
+                  // waiting for human input. Failed / succeeded / running jobs
+                  // may still carry a stale pending intervention in their list,
+                  // so we gate explicitly on status === 'interrupted'.
+                  const isAwaitingAction = job.status === 'interrupted' && !!subtype
+
+                  if (isAwaitingAction && subtype === 'type1') {
+                    return (
+                      <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        Review
+                      </Button>
+                    )
+                  }
+                  if (isAwaitingAction && subtype === 'type2_step0') {
+                    return (
+                      <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        View Quote
+                      </Button>
+                    )
+                  }
+                  if (isAwaitingAction && subtype === 'type2_step1') {
+                    return (
+                      <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/edit`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        Review Pricing
+                      </Button>
+                    )
+                  }
+                  if (isAwaitingAction && subtype === 'type2_step2') {
+                    return (
+                      <Button variant="primary" onClick={() => navigate(`/pipeline/${job.id}/quote/confirm`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        Approve
+                      </Button>
+                    )
+                  }
+                  if (isAwaitingAction && subtype === 'type3') {
+                    return (
+                      <Button variant="ghost" onClick={() => navigate(`/approvals`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        Review Email
+                      </Button>
+                    )
+                  }
+                  if (job.status === 'running' || job.status === 'queued') {
+                    return <Spinner size="sm" />
+                  }
+                  // Everything else (success / failed / interrupted-without-subtype)
+                  // gets View Trail so the user can inspect what happened.
+                  return (
+                    <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                      View Trail
+                    </Button>
+                  )
+                })()}
               </td>
             </tr>
           ))}
