@@ -74,7 +74,7 @@ export function ActionButtons({
           const isRetrigger = item.type === 'retrigger'
 
           return (
-            <span key={item.id} style={{ display: 'inline-flex', gap: 6 }}>
+            <span key={item.id} style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
               <Button
                 variant={variant}
                 loading={loading && !isRetrigger}
