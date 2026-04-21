@@ -6,7 +6,7 @@ import { getCustomerName } from '../../utils/status'
 import { getActionItems, getFormData } from '../../utils/hitl'
 import { buildActionBody } from '../../utils/buildActionBody'
 import { ActionButtons } from './ActionButtons'
-import { FormFieldInput } from './FormFieldInput'
+import { FormFieldRow } from './FormFieldRow'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 import type { InterruptActionItem, FormSection } from '../../types/hitl'
@@ -145,21 +145,14 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
         {form.schema.map((field) => {
           const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
           return (
-            <div key={field.key} className="hitl-form-row">
-              <label className="hitl-form-label">{field.label}</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                <FormFieldInput
-                  field={field}
-                  value={values[field.key]}
-                  onChange={(v) => handleChange(field.key, v)}
-                  resolvedOptions={resolved ?? undefined}
-                  ownerValues={form!.current_values}
-                />
-                {field.description && (
-                  <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
-                )}
-              </div>
-            </div>
+            <FormFieldRow
+              key={field.key}
+              field={field}
+              value={values[field.key]}
+              onChange={(v) => handleChange(field.key, v)}
+              resolvedOptions={resolved ?? undefined}
+              ownerValues={form!.current_values}
+            />
           )
         })}
       </div>

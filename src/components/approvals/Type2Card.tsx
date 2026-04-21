@@ -8,7 +8,7 @@ import { buildActionBody } from '../../utils/buildActionBody'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import { ActionButtons } from './ActionButtons'
-import { FormFieldInput } from './FormFieldInput'
+import { FormFieldRow } from './FormFieldRow'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 import type { CandidateOption, InterruptActionItem, FormSection } from '../../types/hitl'
@@ -397,23 +397,14 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         {form.schema.map((field) => {
           const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
           return (
-            <div key={field.key} className="hitl-form-row">
-              <label className="hitl-form-label" title={field.description ?? undefined}>
-                {field.label}
-              </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                <FormFieldInput
-                  field={field}
-                  value={values[field.key]}
-                  onChange={(v) => handleChange(field.key, v)}
-                  resolvedOptions={resolved ?? undefined}
-                  ownerValues={form!.current_values}
-                />
-                {field.description && (
-                  <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
-                )}
-              </div>
-            </div>
+            <FormFieldRow
+              key={field.key}
+              field={field}
+              value={values[field.key]}
+              onChange={(v) => handleChange(field.key, v)}
+              resolvedOptions={resolved ?? undefined}
+              ownerValues={form!.current_values}
+            />
           )
         })}
       </div>

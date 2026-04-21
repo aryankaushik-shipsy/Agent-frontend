@@ -10,7 +10,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { ActionButtons } from '../components/approvals/ActionButtons'
-import { FormFieldInput } from '../components/approvals/FormFieldInput'
+import { FormFieldRow } from '../components/approvals/FormFieldRow'
 import { buildActionBody } from '../utils/buildActionBody'
 import type { JobDetail } from '../types/job'
 import type { InterruptActionItem, InterruptConstraints, FormSection } from '../types/hitl'
@@ -368,21 +368,14 @@ function QuoteEditFormInner({
           {form.schema.map((field) => {
             const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
             return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
-                  <FormFieldInput
-                    field={field}
-                    value={values[field.key]}
-                    onChange={(v) => handleChange(field.key, v)}
-                    resolvedOptions={resolved ?? undefined}
-                    ownerValues={form.current_values}
-                  />
-                  {field.description && (
-                    <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
-                  )}
-                </div>
-              </div>
+              <FormFieldRow
+                key={field.key}
+                field={field}
+                value={values[field.key]}
+                onChange={(v) => handleChange(field.key, v)}
+                resolvedOptions={resolved ?? undefined}
+                ownerValues={form.current_values}
+              />
             )
           })}
 

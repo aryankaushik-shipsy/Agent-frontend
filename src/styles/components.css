@@ -268,22 +268,56 @@ textarea { resize: vertical; min-height: 80px; }
 .approval-excerpt { font-size: 13px; color: var(--gray-600); background: var(--gray-50); border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; line-height: 1.5; }
 
 /* ─── HITL FORM ────────────────────────────────────────── */
-.hitl-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
-.hitl-form-row { display: flex; align-items: center; gap: 12px; }
-.hitl-form-label { font-size: 11px; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; min-width: 130px; flex-shrink: 0; }
-.hitl-form-static { font-size: 13px; color: var(--dark); font-weight: 500; }
-.hitl-form-input {
-  font-size: 13px; padding: 5px 10px; border: 1px solid var(--gray-200);
-  border-radius: 6px; background: var(--white); color: var(--dark);
-  flex: 1; min-width: 0; outline: none;
+.hitl-form { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+.hitl-form-row { display: flex; align-items: flex-start; gap: 16px; padding: 4px 0; }
+.hitl-form-label {
+  font-size: 11px; color: var(--gray-500); font-weight: 600;
+  text-transform: uppercase; letter-spacing: .4px;
+  min-width: 180px; flex-shrink: 0;
+  /* Labels line up with inputs (inputs have vertical padding), so push the
+     label down a bit so it visually aligns with the first line of the input. */
+  padding-top: 8px;
 }
-.hitl-form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37,99,235,.1); }
+.hitl-form-static { font-size: 13px; color: var(--dark); font-weight: 500; padding-top: 8px; }
+.hitl-form-input {
+  font-size: 13px; padding: 8px 12px; border: 1px solid var(--gray-200);
+  border-radius: 6px; background: var(--white); color: var(--dark);
+  flex: 1; min-width: 0; outline: none; transition: border-color .12s ease;
+}
+.hitl-form-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+.hitl-form-input:hover:not(:focus) { border-color: var(--gray-300, #cbd5e1); }
 .hitl-form-select {
-  font-size: 13px; padding: 5px 10px; border: 1px solid var(--gray-200);
+  font-size: 13px; padding: 8px 12px; border: 1px solid var(--gray-200);
   border-radius: 6px; background: var(--white); color: var(--dark);
   flex: 1; min-width: 0; outline: none; cursor: pointer;
+  transition: border-color .12s ease;
 }
-.hitl-form-select:focus { border-color: var(--blue); }
+.hitl-form-select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+/* Code / JSON advanced field — wraps the label + collapsible summary so
+   power-user fields don't dominate the form visually. */
+.hitl-form-row--advanced { display: block; padding: 4px 0; }
+.hitl-form-row--advanced > details {
+  border: 1px dashed var(--gray-200);
+  border-radius: 6px;
+  padding: 0;
+}
+.hitl-form-row--advanced > details[open] { padding-bottom: 10px; }
+.hitl-form-row--advanced > details > summary {
+  cursor: pointer; padding: 10px 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: .4px;
+  color: var(--gray-500); text-transform: uppercase;
+  list-style: none;
+  display: flex; align-items: center; gap: 8px;
+  user-select: none;
+}
+.hitl-form-row--advanced > details > summary::-webkit-details-marker { display: none; }
+.hitl-form-row--advanced > details > summary::before {
+  content: '▸'; font-size: 10px; color: var(--gray-400);
+  transition: transform .15s ease;
+}
+.hitl-form-row--advanced > details[open] > summary::before { transform: rotate(90deg); }
+.hitl-form-row--advanced > details > .hitl-advanced-body { padding: 0 14px; }
 
 /* ─── CARRIER OPTION CARDS (Type 2 Step 0) ─────────────── */
 .carrier-option-grid { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
