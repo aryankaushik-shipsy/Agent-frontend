@@ -259,7 +259,27 @@ export function looksLikeHtml(value: unknown): boolean {
 }
 
 export function getPendingIntervention(interventions: Intervention[] | undefined): Intervention | undefined {
-  return interventions?.find((i) => i.action_taken == null && i.status !== 'completed')
+  if (!interventions || interventions.length === 0) return undefined
+
+  // Sort newest-first by created_at. The newest intervention is the
+  // authoritative current step — older action_taken=null records can
+  // linger when the backend advances the workflow without closing an
+  // earlier multi-step policy record (rare, but we've seen jobs where
+  // a stale Type-2 Step-2 stays action_taken=null while a later Type-3
+  // email has already fired AND been approved).
+  const sorted = [...interventions].sort((a, b) => {
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0
+    return bt - at
+  })
+
+  // If the newest intervention has been acted on (or marked completed),
+  // nothing is pending — treat any older null records as stale.
+  const newest = sorted[0]
+  if (newest.action_taken != null || newest.status === 'completed') {
+    return undefined
+  }
+  return newest
 }
 
 export function stripHtml(html: string): string {

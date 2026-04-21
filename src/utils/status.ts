@@ -1,6 +1,6 @@
 import type { JobDetail, JobStatus, Task } from '../types/job'
 import type { HitlSubtype } from '../types/hitl'
-import { getFormData } from './hitl'
+import { getFormData, getPendingIntervention } from './hitl'
 
 export type BadgeVariant = 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'gray'
 
@@ -80,7 +80,10 @@ export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null)
   // Forward-only pipeline: check from the most-advanced stage down to least-advanced.
   // The first matching condition wins — a job can never fall back to an earlier label.
   if (job.status === 'interrupted') {
-    const hasPending = (job.interventions ?? []).some((i) => i.action_taken == null)
+    // Use getPendingIntervention so stale older records (newest intervention
+    // has been acted on but an older Step 2 / Type 2 record is still
+    // action_taken=null) don't keep "Price Negotiation" latched.
+    const hasPending = getPendingIntervention(job.interventions) != null
     // Most advanced: quote was sent AND a new HITL has been triggered (price negotiation)
     if (isEmailSent(job.tasks) && hasPending) return { label: 'Price Negotiation', variant: 'yellow' }
     // Quote sent, no pending intervention — waiting on customer reply
