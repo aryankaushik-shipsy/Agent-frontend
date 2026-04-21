@@ -1,5 +1,6 @@
 import type { JobDetail, JobStatus, Task } from '../types/job'
 import type { HitlSubtype } from '../types/hitl'
+import { getFormData } from './hitl'
 
 export type BadgeVariant = 'green' | 'yellow' | 'red' | 'blue' | 'purple' | 'gray'
 
@@ -146,7 +147,10 @@ export function getShipmentFromHitl(job: JobDetail): ShipmentRow | null {
     const type = msg.interaction_type?.[0]
     const stepIndex = msg.step_index
     if (type === 'form' && (stepIndex == null || stepIndex === 0)) {
-      const cv = msg.data?.form?.current_values
+      // Route through getFormData so V2 payloads (values on each leaf) are
+      // synthesized into a flat current_values map the same way as V1.
+      const form = getFormData(intervention)
+      const cv = form?.current_values ?? msg.data?.form?.current_values
       if (!cv) continue
       return {
         origin: cv.origin as string | undefined,

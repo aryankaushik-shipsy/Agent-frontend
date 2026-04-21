@@ -4,11 +4,12 @@ import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
 import { getActionItems, getFormData } from '../../utils/hitl'
+import { buildActionBody } from '../../utils/buildActionBody'
 import { ActionButtons } from './ActionButtons'
 import { FormFieldInput } from './FormFieldInput'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
-import type { InterruptActionItem } from '../../types/hitl'
+import type { InterruptActionItem, FormSection } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -53,7 +54,19 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
     setValues((prev) => ({ ...prev, [key]: value }))
   }
 
-  function computeEdits(): Record<string, unknown> {
+  function buildBody(item: InterruptActionItem): HITLActionRequest {
+    // V2: when `sections` is present, walk the unified tree so candidate_picker
+    // / note leaves route correctly. V1 fallback computes edited_values from
+    // the flat schema.
+    if (form && form.sections) {
+      return buildActionBody({
+        sections: form.sections as FormSection[],
+        values,
+        note,
+        clickedAction: item,
+      })
+    }
+    const body: HITLActionRequest = { action: item.id }
     const edits: Record<string, unknown> = {}
     for (const field of form!.schema) {
       if (!field.editable) continue
@@ -61,12 +74,6 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
       const current = values[field.key]
       if (current !== original) edits[field.key] = current
     }
-    return edits
-  }
-
-  function buildBody(item: InterruptActionItem): HITLActionRequest {
-    const body: HITLActionRequest = { action: item.id }
-    const edits = computeEdits()
     if (Object.keys(edits).length > 0) body.edited_values = edits
     const trimmedNote = note.trim()
     if (trimmedNote) body.note = trimmedNote

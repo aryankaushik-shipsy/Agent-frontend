@@ -1,14 +1,29 @@
 export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval' | 'free_text'
 
+// Legacy names (string/date/datetime/boolean) are kept for backward compat
+// with pre-refactor payloads. V2 policy backend emits the unified-schema names:
+// text / textarea / email / number / select / multiselect / radio / checkbox /
+// switch / datepicker / timepicker.
 export type FormFieldType =
-  | 'string'
+  | 'string'          // legacy → renders as text
   | 'text'
+  | 'textarea'
+  | 'email'
   | 'number'
-  | 'date'
-  | 'datetime'
-  | 'boolean'
+  | 'date'            // legacy → datepicker
+  | 'datetime'        // legacy → datepicker with HH:mm format
+  | 'datepicker'
+  | 'timepicker'
+  | 'boolean'         // legacy → switch
+  | 'switch'
+  | 'checkbox'
+  | 'radio'
   | 'select'
   | 'multiselect'
+
+// A select/multiselect option — the backend may send either a bare string or
+// an object with explicit display label + submit value.
+export type SelectOption = string | { label: string; value: string }
 
 // Policy-authored per-field schema. The dashboard renders widgets based on
 // `type` + optional `format`/`language` hints. Only `key`/`label`/`type` are
@@ -19,16 +34,17 @@ export interface FormFieldSchema {
   label: string
   type: FormFieldType
   editable: boolean
-  options?: string[] | null
+  options?: SelectOption[] | null
   description?: string | null
   // Numeric constraints
   min?: number | null
   max?: number | null
   step?: number | null
-  // Format hint — e.g. "markdown" / "textarea" / "html" / "code"
+  // Format hint — drives sub-rendering for datepicker (date vs datetime via
+  // "YYYY-MM-DD" / "YYYY-MM-DDTHH:mm") and textarea (markdown / code / html).
   format?: string | null
   language?: string | null        // for format=code (e.g. "json")
-  // Boolean labels for true/false states
+  // Boolean / switch labels for true/false states
   true_label?: string | null
   false_label?: string | null
   // multiselect cap
@@ -38,12 +54,109 @@ export interface FormFieldSchema {
   options_source_path?: string | null
   source_path?: string
   required?: boolean
+  // Unified-schema refactor sends this alongside `editable: false`.
+  disabled?: boolean
 }
 
 export interface FormData {
   current_values: Record<string, unknown>
   schema: FormFieldSchema[]
-  resolved_options: Record<string, string[]>
+  resolved_options: Record<string, SelectOption[]>
+  // V2 unified schema — when present, the original `Section[]` tree from the
+  // policy payload. Cards that need group headings / nested groups read from
+  // here; older cards keep reading the flattened `schema` above.
+  sections?: FormSection[]
+  // The CandidatePickerLeaf (if any) — split out so cards can render a card
+  // grid instead of a generic widget.
+  candidate_picker?: CandidatePickerLeaf | null
+  // The NoteLeaf (if any) — when present, its value routes to `instruction`
+  // (retrigger) or `data.free_text_input` (else) on submit, NOT to edited_values.
+  note_leaf?: NoteLeaf | null
+}
+
+// =============================================================================
+// V2 unified form schema — data.form.schema = Section[]
+// Mirrors the contract in sdd/hitl/policy_and_api_guide.md §2.1.
+// =============================================================================
+export interface FormSection {
+  title: string
+  schema: Array<FormLeaf | FormGroup | CandidatePickerLeaf | NoteLeaf>
+}
+
+export interface FormGroup {
+  name: string
+  title: string
+  schema: Array<FormLeaf | FormGroup | CandidatePickerLeaf | NoteLeaf>
+}
+
+// A "regular" editable form field whose value goes into `edited_values[name]`.
+export interface FormLeaf {
+  type: FormFieldType
+  name: string
+  label: string
+  value: unknown
+  required?: boolean
+  disabled?: boolean
+  placeholder?: string
+  description?: string | null
+  validation?: {
+    min?: number
+    max?: number
+    step?: number
+    minLength?: number
+    maxLength?: number
+    pattern?: string
+  }
+  options?: SelectOption[] | null
+  options_source_path?: string | null
+  format?: string | null
+  language?: string | null
+  true_label?: string | null
+  false_label?: string | null
+  max_selections?: number | null
+}
+
+// Candidate-picker leaf — one per step when interaction_type includes
+// "candidate_selection". Selection routes to `selected_candidate_id`;
+// per-field inline edits on the selected card → `candidate_edits`.
+export interface CandidatePickerLeaf {
+  type: 'candidate_picker'
+  name: string
+  label: string
+  value: unknown
+  required?: boolean
+  disabled?: boolean
+  options: Array<Record<string, unknown>>
+  id_field: string
+  display_fields: string[]
+}
+
+// Free-text note leaf — value routes to `instruction` (retrigger actions)
+// or `data.free_text_input` (any other action type).
+export interface NoteLeaf {
+  type: 'note'
+  name: string
+  label: string
+  value: unknown
+  required?: boolean
+  disabled?: boolean
+  placeholder?: string
+}
+
+// Discriminator helpers. Per the policy guide render algorithm, a node is a
+// group iff it has NO `type` key (leaves always carry `type`).
+export type FormTreeNode = FormLeaf | FormGroup | CandidatePickerLeaf | NoteLeaf
+export function isFormGroup(node: FormTreeNode): node is FormGroup {
+  return !('type' in node)
+}
+export function isCandidatePicker(node: FormTreeNode): node is CandidatePickerLeaf {
+  return 'type' in node && node.type === 'candidate_picker'
+}
+export function isNoteLeaf(node: FormTreeNode): node is NoteLeaf {
+  return 'type' in node && node.type === 'note'
+}
+export function isFormLeaf(node: FormTreeNode): node is FormLeaf {
+  return 'type' in node && node.type !== 'candidate_picker' && node.type !== 'note'
 }
 
 export interface CandidateOption {
@@ -171,15 +284,24 @@ export interface HITLInterruptPayload {
   prior_edits?: PriorEditEntry[] | null
 }
 
+// V2 (current contract): one entry per edited field, with a single
+// primitive old/new pair and a `field` name.
+// V1 (legacy): one entry per step, with action_id / step_name and a
+// record-shaped old_value / new_value keyed by field name.
+// The union supports both; renderers should prefer `field` when present.
 export interface PriorEditEntry {
+  step_index: number
+  // V2 per-field entry
+  field?: string
+  // V1 per-step entry
+  action_id?: string
+  step_name?: string
+  timestamp?: string
   job_id?: number
   hitl_id?: number
-  action_id: string
-  step_name: string
-  step_index: number
-  timestamp?: string
-  new_value?: Record<string, unknown> | null
-  old_value?: Record<string, unknown> | null
+  // V2 carries primitives here; V1 carries Record<string, unknown>
+  new_value?: unknown
+  old_value?: unknown
 }
 
 // Type discriminator — replaces the old HitlType = 1 | 2 | 3

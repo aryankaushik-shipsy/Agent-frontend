@@ -11,8 +11,9 @@ import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { ActionButtons } from '../components/approvals/ActionButtons'
 import { FormFieldInput } from '../components/approvals/FormFieldInput'
+import { buildActionBody } from '../utils/buildActionBody'
 import type { JobDetail } from '../types/job'
-import type { InterruptActionItem, InterruptConstraints } from '../types/hitl'
+import type { InterruptActionItem, InterruptConstraints, FormSection } from '../types/hitl'
 import type { HITLActionRequest } from '../api/hitl'
 
 const POLL_INTERVAL_MS = 3_000
@@ -414,6 +415,14 @@ function QuoteEditFormInner({
           loading={isPending}
           disabled={isDisabled}
           buildBody={(item) => {
+            if (form.sections) {
+              return buildActionBody({
+                sections: form.sections as FormSection[],
+                values,
+                note,
+                clickedAction: item,
+              })
+            }
             const body: HITLActionRequest = { action: item.id }
             const edits = computeEdits()
             if (Object.keys(edits).length > 0) body.edited_values = edits

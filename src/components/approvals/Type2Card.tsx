@@ -4,13 +4,14 @@ import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getTierInfo, getCustomerName } from '../../utils/status'
 import { getActionItems, getCandidateData, getFormData, formatFieldValue, humanizeKey } from '../../utils/hitl'
+import { buildActionBody } from '../../utils/buildActionBody'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import { ActionButtons } from './ActionButtons'
 import { FormFieldInput } from './FormFieldInput'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
-import type { CandidateOption, InterruptActionItem } from '../../types/hitl'
+import type { CandidateOption, InterruptActionItem, FormSection } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -70,8 +71,13 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
     if (selectedId && item.candidates?.required) body.selected_candidate_id = selectedId
     const trimmedNote = note.trim()
     if (trimmedNote) body.note = trimmedNote
+    // Free-text input must be nested under `data.free_text_input` — the
+    // backend silently drops top-level `free_text`. Only send when the
+    // interaction declares a `free_text` sibling to the candidate_selection.
     const trimmedFreeText = freeText.trim()
-    if (trimmedFreeText && hasFreeText) body.free_text = trimmedFreeText
+    if (trimmedFreeText && hasFreeText) {
+      body.data = { ...(body.data ?? {}), free_text_input: trimmedFreeText }
+    }
     if (Object.keys(candidateEdits).length > 0 && item.candidates?.required) {
       body.candidate_edits = candidateEdits
     }
@@ -311,6 +317,17 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   }
 
   function buildBody(item: InterruptActionItem): HITLActionRequest {
+    // V2: walk the unified form tree so any NoteLeaf / CandidatePickerLeaf
+    // inside it routes correctly. Step 1 is primarily a regular form, but
+    // the policy could include a free-text note leaf for the reviewer.
+    if (form?.sections) {
+      return buildActionBody({
+        sections: form.sections as FormSection[],
+        values,
+        note,
+        clickedAction: item,
+      })
+    }
     const body: HITLActionRequest = { action: item.id }
     const edits = computeEdits()
     if (Object.keys(edits).length > 0) body.edited_values = edits
@@ -521,7 +538,18 @@ function Step2({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
       <ActionButtons
         actions={actionItems}
         loading={loading}
-        buildBody={(item) => ({ action: item.id })}
+        buildBody={(item) => {
+          // Step 2 is approval + read-only form — nothing in `edited_values`
+          // but the form tree may still carry a note leaf for the reviewer.
+          if (form?.sections) {
+            return buildActionBody({
+              sections: form.sections as FormSection[],
+              values: form.current_values ?? {},
+              clickedAction: item,
+            })
+          }
+          return { action: item.id }
+        }}
         onSubmit={onAction}
       />
     </div>

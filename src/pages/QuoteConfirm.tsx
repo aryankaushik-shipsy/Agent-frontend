@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useHitlAction } from '../hooks/useHitlAction'
 import { getActionItems, getPendingIntervention, getFormData, detectHitlSubtype, formatFieldValue, humanizeKey } from '../utils/hitl'
+import { buildActionBody } from '../utils/buildActionBody'
 import { getCustomerName } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Badge } from '../components/ui/Badge'
@@ -162,13 +163,21 @@ export function QuoteConfirm() {
   const grandTotal  = cv.grand_total as number | undefined
   const currencyCode = (cv.currency_code as string) ?? 'USD'
 
-  // Per-field "was edited" lookup derived from prior_edits. The edit is "real"
-  // when old_value[key] !== new_value[key]; a bare action like `select` with
-  // both values null is treated as a step marker with no field diff.
+  // Per-field "was edited" lookup derived from prior_edits. Supports both
+  // payload shapes:
+  //  V2: {step_index, field, old_value, new_value} — one entry per edited field
+  //  V1: {step_index, action_id, step_name, old_value, new_value} where
+  //      old/new are Record<string, unknown> grouped per step.
   const editedFieldKeys = new Set<string>()
   for (const p of priorEdits) {
-    const oldV = p.old_value ?? {}
-    const newV = p.new_value ?? {}
+    if (p.field) {
+      // V2 — a single field entry; include if old/new differ
+      if (p.old_value !== p.new_value) editedFieldKeys.add(p.field)
+      continue
+    }
+    // V1 fallback
+    const oldV = (p.old_value ?? {}) as Record<string, unknown>
+    const newV = (p.new_value ?? {}) as Record<string, unknown>
     for (const k of Object.keys(newV)) {
       if (oldV[k] !== newV[k]) editedFieldKeys.add(k)
     }
@@ -247,6 +256,17 @@ function QuoteConfirmInner({
   }
 
   function buildBody(item: InterruptActionItem): HITLActionRequest {
+    // Step 2 form is read-only, but the policy may still declare a note leaf
+    // (free_text) inside the form tree. buildActionBody routes that + the
+    // top-level reviewer note correctly.
+    if (form?.sections) {
+      return buildActionBody({
+        sections: form.sections,
+        values: form.current_values ?? {},
+        note,
+        clickedAction: item,
+      })
+    }
     const body: HITLActionRequest = { action: item.id }
     const trimmed = note.trim()
     if (trimmed) body.note = trimmed
@@ -361,37 +381,90 @@ function QuoteConfirmInner({
           <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
             Changes Made
           </div>
-          {priorEdits.map((edit, i) => {
-            const oldV = edit.old_value ?? {}
-            const newV = edit.new_value ?? {}
-            const diffKeys = Object.keys(newV).filter((k) => oldV[k] !== newV[k])
-            return (
-              <div key={i} style={{ fontSize: 13, marginBottom: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-50)' }}>
-                <div>
-                  <span style={{ fontWeight: 500 }}>{humanizeKey(edit.step_name)}</span>
-                  <span style={{ color: 'var(--gray-400)', marginLeft: 8 }}>({edit.action_id})</span>
-                </div>
-                {diffKeys.length > 0 ? (
+          {(() => {
+            // V2 entries are per-field; V1 entries are per-step with nested
+            // old/new records. Group V2 by step_index so the UI still reads
+            // "Step N: field1 old → new, field2 old → new" instead of a flat
+            // list.
+            type V2GroupKey = string
+            const v2Groups = new Map<V2GroupKey, Array<{ field: string; old_value: unknown; new_value: unknown; step_index: number }>>()
+            const v1Entries: typeof priorEdits = []
+            for (const p of priorEdits) {
+              if (p.field) {
+                const k = String(p.step_index)
+                if (!v2Groups.has(k)) v2Groups.set(k, [])
+                v2Groups.get(k)!.push({
+                  field: p.field,
+                  old_value: p.old_value,
+                  new_value: p.new_value,
+                  step_index: p.step_index,
+                })
+              } else {
+                v1Entries.push(p)
+              }
+            }
+
+            const rows: React.ReactNode[] = []
+
+            // V2 rendering — grouped per step
+            for (const [k, entries] of v2Groups) {
+              const stepIx = entries[0].step_index
+              rows.push(
+                <div key={`v2-${k}`} style={{ fontSize: 13, marginBottom: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-50)' }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>Step {stepIx + 1}</span>
+                  </div>
                   <div style={{ marginTop: 4, paddingLeft: 12 }}>
-                    {diffKeys.map((key) => (
-                      <div key={key} style={{ fontSize: 12, color: 'var(--gray-600)' }}>
-                        {humanizeKey(key)}:{' '}
+                    {entries.map((e) => (
+                      <div key={e.field} style={{ fontSize: 12, color: 'var(--gray-600)' }}>
+                        {humanizeKey(e.field)}:{' '}
                         <span style={{ textDecoration: 'line-through', color: 'var(--gray-400)', marginRight: 4 }}>
-                          {formatFieldValue(key, oldV[key], oldV)}
+                          {formatFieldValue(e.field, e.old_value)}
                         </span>
                         →{' '}
-                        <strong>{formatFieldValue(key, newV[key], newV)}</strong>
+                        <strong>{formatFieldValue(e.field, e.new_value)}</strong>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div style={{ marginTop: 4, paddingLeft: 12, fontSize: 12, color: 'var(--gray-400)' }}>
-                    No field edits at this step.
+                </div>
+              )
+            }
+
+            // V1 rendering — per-step entries with record-shaped old/new
+            for (let i = 0; i < v1Entries.length; i++) {
+              const edit = v1Entries[i]
+              const oldV = (edit.old_value ?? {}) as Record<string, unknown>
+              const newV = (edit.new_value ?? {}) as Record<string, unknown>
+              const diffKeys = Object.keys(newV).filter((kk) => oldV[kk] !== newV[kk])
+              rows.push(
+                <div key={`v1-${i}`} style={{ fontSize: 13, marginBottom: 8, padding: '6px 0', borderBottom: '1px solid var(--gray-50)' }}>
+                  <div>
+                    <span style={{ fontWeight: 500 }}>{humanizeKey(edit.step_name ?? `Step ${edit.step_index + 1}`)}</span>
+                    {edit.action_id && <span style={{ color: 'var(--gray-400)', marginLeft: 8 }}>({edit.action_id})</span>}
                   </div>
-                )}
-              </div>
-            )
-          })}
+                  {diffKeys.length > 0 ? (
+                    <div style={{ marginTop: 4, paddingLeft: 12 }}>
+                      {diffKeys.map((key) => (
+                        <div key={key} style={{ fontSize: 12, color: 'var(--gray-600)' }}>
+                          {humanizeKey(key)}:{' '}
+                          <span style={{ textDecoration: 'line-through', color: 'var(--gray-400)', marginRight: 4 }}>
+                            {formatFieldValue(key, oldV[key], oldV)}
+                          </span>
+                          →{' '}
+                          <strong>{formatFieldValue(key, newV[key], newV)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ marginTop: 4, paddingLeft: 12, fontSize: 12, color: 'var(--gray-400)' }}>
+                      No field edits at this step.
+                    </div>
+                  )}
+                </div>
+              )
+            }
+            return rows
+          })()}
         </div>
       )}
 

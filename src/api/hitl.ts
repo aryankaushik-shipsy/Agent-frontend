@@ -6,11 +6,16 @@ export interface HITLActionRequest {
   selected_candidate_id?: string
   candidate_edits?: Record<string, unknown>
   note?: string
-  // Free-text guidance for retrigger actions — steers the agent's re-execution
+  // Free-text guidance for retrigger actions — steers the agent's re-execution.
+  // This one IS a real top-level field on HITLActionRequest.
   instruction?: string
-  // Free-text sibling to a candidate_selection / other `free_text` interaction
-  // — written to state via the action's effects (e.g. execution_variables.<x>).
-  free_text?: string
+  // Sibling payload for `free_text` interactions on non-retrigger actions.
+  // IMPORTANT: the reviewer's free-text input must go inside
+  // `data.free_text_input` — HITLActionRequest silently drops unknown
+  // top-level fields (Pydantic `extra='ignore'`), so a top-level `free_text`
+  // won't reach the server. The policy's action effect reads from
+  // `source: "data.free_text_input"`.
+  data?: Record<string, unknown>
 }
 
 export async function submitHitlAction(id: number, body: HITLActionRequest): Promise<void> {
