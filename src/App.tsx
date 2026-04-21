@@ -12,6 +12,7 @@ import { QuoteConfirm } from './pages/QuoteConfirm'
 import { EmailPreview } from './pages/EmailPreview'
 import { HITLApprovals } from './pages/HITLApprovals'
 import { ApprovalDetail } from './pages/ApprovalDetail'
+import { ApprovalEmailReview } from './pages/ApprovalEmailReview'
 import { EmailAuditTrail } from './pages/EmailAuditTrail'
 
 const queryClient = new QueryClient({
@@ -40,6 +41,7 @@ export default function App() {
               <Route path="pipeline/:jobId/email-preview" element={<EmailPreview />} />
               <Route path="approvals" element={<HITLApprovals />} />
               <Route path="approvals/:jobId" element={<ApprovalDetail />} />
+              <Route path="approvals/:jobId/email" element={<ApprovalEmailReview />} />
               <Route path="audit" element={<EmailAuditTrail />} />
               <Route path="audit/:jobId" element={<EmailAuditTrail />} />
             </Route>

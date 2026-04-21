@@ -20,8 +20,12 @@ export function ApprovalDetail() {
     setLoadingId(interventionId)
     try {
       await mutateAsync({ id: interventionId, ...body })
+      // useHitlAction.onSuccess already invalidates+refetches ['jobs'] and
+      // ['job']. Send the reviewer back to the dashboard — the approvals
+      // queue / pending badge there will reflect the just-actioned item.
       queryClient.invalidateQueries({ queryKey: ['job', job?.id] })
       setDone(true)
+      navigate('/dashboard')
     } finally {
       setLoadingId(null)
     }

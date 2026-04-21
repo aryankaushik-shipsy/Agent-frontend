@@ -3,10 +3,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useJobs } from '../hooks/useJobs'
 import { useJobDetails } from '../hooks/useJobDetails'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention } from '../utils/hitl'
+import { detectHitlSubtype, getPendingIntervention } from '../utils/hitl'
 import type { HITLActionRequest } from '../api/hitl'
 import { WarningBanner } from '../components/approvals/WarningBanner'
 import { ApprovalCardRouter } from '../components/approvals/ApprovalCardRouter'
+import { Type3SummaryCard } from '../components/approvals/Type3SummaryCard'
 import { Spinner } from '../components/ui/Spinner'
 import { RFQ_WORKFLOW_ID } from '../constants'
 
@@ -31,16 +32,28 @@ export function HITLApprovals() {
 
   async function handleAction(interventionId: number, body: HITLActionRequest) {
     setLoadingId(interventionId)
+    // Optimistically hide the card BEFORE the network round-trip so the
+    // submit button disappears immediately — no re-click possible while
+    // the request is in flight and no flicker when the refetch lands.
+    const jobDetail = details.find((d) =>
+      (d.interventions ?? []).some((i) => i.id === interventionId)
+    )
+    if (jobDetail) {
+      setRemovedIds((prev) => new Set([...prev, jobDetail.id]))
+    }
     try {
       await mutateAsync({ id: interventionId, ...body })
-      // optimistically remove the job card
-      const jobDetail = details.find((d) =>
-        (d.interventions ?? []).some((i) => i.id === interventionId)
-      )
       if (jobDetail) {
-        setRemovedIds((prev) => new Set([...prev, jobDetail.id]))
-        // also invalidate per-job cache
         queryClient.invalidateQueries({ queryKey: ['job', jobDetail.id] })
+      }
+    } catch {
+      // If the submission failed, restore the card so the reviewer can retry.
+      if (jobDetail) {
+        setRemovedIds((prev) => {
+          const next = new Set(prev)
+          next.delete(jobDetail.id)
+          return next
+        })
       }
     } finally {
       setLoadingId(null)
@@ -73,14 +86,24 @@ export function HITLApprovals() {
         </div>
       )}
 
-      {visibleDetails.map((job) => (
-        <ApprovalCardRouter
-          key={job.id}
-          job={job}
-          onAction={handleAction}
-          loadingId={loadingId}
-        />
-      ))}
+      {visibleDetails.map((job) => {
+        // Type 3 (email review) gets a compact summary card here; the full
+        // preview + send/skip controls live on the dedicated review page
+        // so the email body isn't squeezed into the list layout.
+        const pending = getPendingIntervention(job.interventions)
+        const subtype = pending ? detectHitlSubtype(pending) : null
+        if (pending && subtype === 'type3') {
+          return <Type3SummaryCard key={job.id} job={job} intervention={pending} />
+        }
+        return (
+          <ApprovalCardRouter
+            key={job.id}
+            job={job}
+            onAction={handleAction}
+            loadingId={loadingId}
+          />
+        )
+      })}
     </div>
   )
 }
