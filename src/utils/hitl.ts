@@ -183,6 +183,14 @@ export function getCandidateData(intervention: Intervention): CandidateSelection
   return null
 }
 
+// send_email tool injects these args at runtime (send_to from the customer's
+// email, thread_id / message_id for reply threading, type for template
+// dispatch). They're not reviewer-editable — the policy guide §2.2.5 /
+// build_tool_args_form calls them out explicitly. Backends SHOULD filter
+// them before the form leaves the server; until that's rock-solid this
+// client-side allowlist is a belt-and-braces defense.
+const TOOL_ARG_INJECTED_KEYS = new Set(['send_to', 'thread_id', 'message_id', 'type'])
+
 export function getToolArgsData(intervention: Intervention): ToolArgsData | null {
   const msg = intervention.interrupt_message
   if (!msg) return null
@@ -198,6 +206,8 @@ export function getToolArgsData(intervention: Intervention): ToolArgsData | null
   const form = msg.data?.form
   if (form && isV2Schema(form.schema)) {
     const leaves = flattenFormLeaves(form.schema as FormSection[])
+      // Drop the well-known injected args — reviewers don't control these.
+      .filter((l) => !TOOL_ARG_INJECTED_KEYS.has(l.name))
     if (leaves.length === 0) return null
     const args: Record<string, unknown> = {}
     const ui_schema: Record<string, { label?: string; description?: string; format?: string; multiline?: boolean }> = {}
@@ -213,6 +223,19 @@ export function getToolArgsData(intervention: Intervention): ToolArgsData | null
     return { args, ui_schema }
   }
   return null
+}
+
+/**
+ * Quick content-based check for "does this string look like HTML?".
+ *
+ * Not bulletproof — a plain sentence with "<3" wouldn't trip it — but good
+ * enough to catch email bodies and policy-declared HTML fields when the
+ * backend omits the `format=html` hint. Callers should prefer the schema
+ * hint and only fall back to this when the hint is absent.
+ */
+export function looksLikeHtml(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  return /<(?:p|div|span|br|h[1-6]|table|tr|td|th|tbody|thead|ul|ol|li|a|strong|em|b|i|img|hr|blockquote|code|pre)\b[^>]*>/i.test(value)
 }
 
 export function getPendingIntervention(interventions: Intervention[] | undefined): Intervention | undefined {

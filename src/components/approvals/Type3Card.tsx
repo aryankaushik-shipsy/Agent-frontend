@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
-import { getActionItems, getToolArgsData } from '../../utils/hitl'
+import { getActionItems, getToolArgsData, looksLikeHtml } from '../../utils/hitl'
 import { ActionButtons } from './ActionButtons'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
@@ -22,9 +22,18 @@ function labelFor(key: string, hint?: ToolArgUiHint): string {
   return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** HTML-formatted args render in an iframe preview (with an edit-mode toggle to textarea). */
-function isHtmlFormat(hint?: ToolArgUiHint): boolean {
-  return hint?.format === 'html'
+/**
+ * HTML-formatted args render as an iframe preview (with an edit-mode toggle).
+ *
+ * Prefer the policy's explicit hint (`format=html`). If the hint is missing —
+ * some backend paths build the form from the tool's JSON schema and omit the
+ * format — fall back to a content sniff: a string with common HTML tags is
+ * almost certainly meant to be previewed as HTML, not edited as a one-line
+ * text input with `<div style="…">` visible as a raw string.
+ */
+function isHtmlFormat(hint: ToolArgUiHint | undefined, value: unknown): boolean {
+  if (hint?.format === 'html') return true
+  return looksLikeHtml(value)
 }
 
 export function Type3Card({ job, intervention, onAction, loading }: Props) {
@@ -99,9 +108,9 @@ export function Type3Card({ job, intervention, onAction, loading }: Props) {
       {/* Render each editable arg exposed by the policy */}
       {argKeys.map((key) => {
         const hint = uiSchema[key]
-        const html = isHtmlFormat(hint)
-        const isEditing = editMode[key] ?? false
         const value = values[key]
+        const html = isHtmlFormat(hint, value)
+        const isEditing = editMode[key] ?? false
 
         if (html) {
           // HTML body — iframe preview with a Preview ⇄ Edit toggle per field

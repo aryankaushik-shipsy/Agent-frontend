@@ -1,5 +1,58 @@
-import { formatFieldValue } from '../../utils/hitl'
+import { useState } from 'react'
+import { formatFieldValue, looksLikeHtml } from '../../utils/hitl'
 import type { FormFieldSchema, SelectOption } from '../../types/hitl'
+
+/**
+ * Editable HTML body — shows a sandboxed iframe preview by default with a
+ * "Edit HTML" toggle that swaps in a monospace textarea. Covers email bodies
+ * (`message` on send_email) and any other `format=html` field the policy
+ * declares as editable.
+ */
+function HtmlBodyInput({ value, onChange, label }: { value: unknown; onChange: (v: unknown) => void; label: string }) {
+  const [editing, setEditing] = useState(false)
+  const html = value != null ? String(value) : ''
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button
+          type="button"
+          onClick={() => setEditing((v) => !v)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: 12, color: '#2563eb', fontWeight: 500, padding: 0,
+            textDecoration: 'underline', textUnderlineOffset: 2,
+          }}
+        >
+          {editing ? 'Preview' : 'Edit HTML'}
+        </button>
+      </div>
+      {editing ? (
+        <textarea
+          className="hitl-form-input"
+          spellCheck={false}
+          style={{
+            width: '100%', minHeight: 240, resize: 'vertical',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+            fontSize: 12, tabSize: 2,
+          }}
+          value={html}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      ) : (
+        <iframe
+          sandbox="allow-same-origin"
+          srcDoc={html}
+          title={label}
+          style={{
+            width: '100%', height: 260,
+            border: '1px solid var(--gray-200)', borderRadius: 6,
+            background: '#fff',
+          }}
+        />
+      )}
+    </div>
+  )
+}
 
 interface Props {
   field: FormFieldSchema
@@ -58,7 +111,7 @@ export function FormFieldInput({ field, value, onChange, ownerValues, resolvedOp
 
   // ── Read-only rendering ─────────────────────────────────────────────────
   if (readOnly) {
-    if (field.format === 'html' && typeof value === 'string' && value) {
+    if ((field.format === 'html' || looksLikeHtml(value)) && typeof value === 'string' && value) {
       return (
         <iframe
           sandbox="allow-same-origin"
@@ -241,6 +294,15 @@ export function FormFieldInput({ field, value, onChange, ownerValues, resolvedOp
         onChange={(e) => onChange(e.target.value || null)}
       />
     )
+  }
+
+  // HTML-body fields (e.g. email `message`) — preview by default, toggle to
+  // edit. Applies regardless of the underlying type name the policy used
+  // (text / textarea / string). We prefer the `format=html` hint but fall
+  // back to a content sniff so a plain `type: text` leaf with HTML content
+  // doesn't end up as a single-line text box showing raw `<div style="…">`.
+  if (field.format === 'html' || looksLikeHtml(value)) {
+    return <HtmlBodyInput value={value} onChange={onChange} label={field.label} />
   }
 
   // string / text / textarea / email — format hint drives sub-rendering
