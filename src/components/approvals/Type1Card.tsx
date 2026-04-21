@@ -5,6 +5,7 @@ import { formatRelativeTime } from '../../utils/time'
 import { getCustomerName } from '../../utils/status'
 import { getActionItems, getFormData } from '../../utils/hitl'
 import { ActionButtons } from './ActionButtons'
+import { FormFieldInput } from './FormFieldInput'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 import type { InterruptActionItem } from '../../types/hitl'
@@ -135,78 +136,22 @@ export function Type1Card({ job, intervention, onAction, loading }: Props) {
 
       <div className="hitl-form">
         {form.schema.map((field) => {
-          const value = values[field.key]
-          // Options may come from the schema itself or from the resolved_options map
-          const options = field.options ?? form.resolved_options[field.key]
-
-          if (!field.editable) {
-            return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <span className="hitl-form-static">
-                  {value != null ? String(value) : '—'}
-                </span>
-              </div>
-            )
-          }
-
-          if (field.type === 'select' && options) {
-            return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <select
-                  className="hitl-form-select"
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                >
-                  <option value="">—</option>
-                  {options.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-            )
-          }
-
-          if (field.type === 'number') {
-            return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <input
-                  className="hitl-form-input"
-                  type="number"
-                  min={field.min ?? undefined}
-                  max={field.max ?? undefined}
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value === '' ? null : Number(e.target.value))}
-                />
-              </div>
-            )
-          }
-
-          if (field.type === 'date') {
-            return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <input
-                  className="hitl-form-input"
-                  type="date"
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                />
-              </div>
-            )
-          }
-
+          const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
           return (
             <div key={field.key} className="hitl-form-row">
               <label className="hitl-form-label">{field.label}</label>
-              <input
-                className="hitl-form-input"
-                type="text"
-                value={value != null ? String(value) : ''}
-                onChange={(e) => handleChange(field.key, e.target.value)}
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                <FormFieldInput
+                  field={field}
+                  value={values[field.key]}
+                  onChange={(v) => handleChange(field.key, v)}
+                  resolvedOptions={resolved ?? undefined}
+                  ownerValues={form!.current_values}
+                />
+                {field.description && (
+                  <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
+                )}
+              </div>
             </div>
           )
         })}

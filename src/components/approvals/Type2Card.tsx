@@ -7,6 +7,7 @@ import { getActionItems, getCandidateData, getFormData, formatFieldValue, humani
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
 import { ActionButtons } from './ActionButtons'
+import { FormFieldInput } from './FormFieldInput'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 import type { CandidateOption, InterruptActionItem } from '../../types/hitl'
@@ -45,6 +46,9 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [note, setNote] = useState('')
+  // Optional sibling input when the interaction also declares `free_text`.
+  // Captured into state via the action's effects (e.g. carrier_selection_reason).
+  const [freeText, setFreeText] = useState('')
   // Per-candidate edits keyed by id_field value. Only populated when the
   // chosen action declares `candidates.editable_fields` and the user edits
   // one of those fields on the currently-selected row.
@@ -53,16 +57,24 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   if (!candidateData) return null
 
   const { options, id_field, display_fields } = candidateData
+  const hasFreeText = (msg?.interaction_type ?? []).includes('free_text')
 
   // Secondary fields to render on each card (skip id_field — it's the title).
   const metaFields = (display_fields ?? []).filter((f) => f !== id_field)
 
   function buildBody(item: InterruptActionItem): HITLActionRequest {
     const body: HITLActionRequest = { action: item.id }
-    if (selectedId) body.selected_candidate_id = selectedId
-    const trimmed = note.trim()
-    if (trimmed) body.note = trimmed
-    if (Object.keys(candidateEdits).length > 0) body.candidate_edits = candidateEdits
+    // `selected_candidate_id` only matters for actions that actually consume a
+    // candidate (e.g. "select"); retrigger/skip actions like refetch_rates /
+    // skip_to_end carry no selection.
+    if (selectedId && item.candidates?.required) body.selected_candidate_id = selectedId
+    const trimmedNote = note.trim()
+    if (trimmedNote) body.note = trimmedNote
+    const trimmedFreeText = freeText.trim()
+    if (trimmedFreeText && hasFreeText) body.free_text = trimmedFreeText
+    if (Object.keys(candidateEdits).length > 0 && item.candidates?.required) {
+      body.candidate_edits = candidateEdits
+    }
     return body
   }
 
@@ -202,6 +214,19 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
                 </div>
               )
             })}
+        </div>
+      )}
+
+      {hasFreeText && (
+        <div className="hitl-form-row" style={{ marginTop: 10 }}>
+          <label className="hitl-form-label">Reviewer note</label>
+          <textarea
+            className="hitl-form-input"
+            style={{ minHeight: 60, resize: 'vertical', fontFamily: 'inherit', width: '100%' }}
+            value={freeText}
+            onChange={(e) => setFreeText(e.target.value)}
+            placeholder="Why this choice? (stored with the audit trail)"
+          />
         </div>
       )}
 
@@ -353,67 +378,20 @@ function Step1({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
 
       <div className="hitl-form">
         {form.schema.map((field) => {
-          const value = values[field.key]
-          const options = field.options ?? form.resolved_options[field.key]
-
-          if (!field.editable) {
-            // formatFieldValue picks up currency_code from current_values
-            // to render grand_total/subtotal/vat_amount as "USD 1,058.75".
-            return (
-              <div key={field.key} className="hitl-form-row">
-                <label className="hitl-form-label">{field.label}</label>
-                <span className="hitl-form-static">
-                  {formatFieldValue(field.key, value, form!.current_values)}
-                </span>
-              </div>
-            )
-          }
-
-          const commonInput = (
-            <>
-              {field.type === 'select' && options ? (
-                <select
-                  className="hitl-form-select"
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                >
-                  <option value="">—</option>
-                  {options.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-              ) : field.type === 'number' ? (
-                <input
-                  className="hitl-form-input"
-                  type="number"
-                  min={field.min ?? undefined}
-                  max={field.max ?? undefined}
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value === '' ? null : Number(e.target.value))}
-                />
-              ) : field.type === 'date' ? (
-                <input
-                  className="hitl-form-input"
-                  type="date"
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                />
-              ) : (
-                <input
-                  className="hitl-form-input"
-                  type="text"
-                  value={value != null ? String(value) : ''}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                />
-              )}
-            </>
-          )
-
+          const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
           return (
             <div key={field.key} className="hitl-form-row">
               <label className="hitl-form-label" title={field.description ?? undefined}>
                 {field.label}
               </label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                {commonInput}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                <FormFieldInput
+                  field={field}
+                  value={values[field.key]}
+                  onChange={(v) => handleChange(field.key, v)}
+                  resolvedOptions={resolved ?? undefined}
+                  ownerValues={form!.current_values}
+                />
                 {field.description && (
                   <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
                 )}

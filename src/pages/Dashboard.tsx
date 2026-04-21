@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import { getInsights } from '../api/insights'
 import { getJobs } from '../api/jobs'
@@ -104,6 +104,29 @@ export function Dashboard() {
   })
 
   const [insightsRes, activeRes, todayRes, recentRes, pendingRes, completedRes, allPendingRes, interruptedRes] = results
+
+  // When the regular query refetches and a job disappears from it (typical
+  // signal that the job just transitioned into an active-intervention state),
+  // immediately invalidate the pending-intervention queries so the two views
+  // don't go out of sync for up to 15s. Without this, a freshly-interrupted
+  // job vanishes from "Recent RFQs" until the next pending poll fires.
+  const prevRecentIdsRef = useRef<number[]>([])
+  useEffect(() => {
+    const currentIds = new Set((recentRes.data?.jobs ?? []).map((j) => j.id))
+    const disappeared = prevRecentIdsRef.current.filter((id) => !currentIds.has(id))
+    if (disappeared.length > 0) {
+      queryClient.invalidateQueries({
+        predicate: (q) => {
+          const key = q.queryKey as unknown[]
+          if (key[0] !== 'jobs') return false
+          const filter = key[1] as Record<string, unknown> | undefined
+          return filter?.active_interventions === true
+        },
+      })
+    }
+    prevRecentIdsRef.current = (recentRes.data?.jobs ?? []).map((j) => j.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentRes.data])
 
   // IDs of jobs with active interventions (fetched separately — API excludes them otherwise)
   const pendingIds = new Set((pendingRes.data?.jobs ?? []).map(j => j.id))

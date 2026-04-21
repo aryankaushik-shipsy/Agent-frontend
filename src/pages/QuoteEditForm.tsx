@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getActionItems, getPendingIntervention, getFormData, detectHitlSubtype, formatFieldValue } from '../utils/hitl'
+import { getActionItems, getPendingIntervention, getFormData, detectHitlSubtype } from '../utils/hitl'
 import { getJobById } from '../api/jobs'
 import { getTierInfo, getCustomerName } from '../utils/status'
 import { isAboveThreshold } from '../utils/margin'
@@ -10,6 +10,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Spinner } from '../components/ui/Spinner'
 import { ActionButtons } from '../components/approvals/ActionButtons'
+import { FormFieldInput } from '../components/approvals/FormFieldInput'
 import type { JobDetail } from '../types/job'
 import type { InterruptActionItem, InterruptConstraints } from '../types/hitl'
 import type { HITLActionRequest } from '../api/hitl'
@@ -360,59 +361,21 @@ function QuoteEditFormInner({
         )}
       </div>
 
-      {/* Form — rendered strictly from form.schema */}
+      {/* Form — rendered strictly from form.schema via the shared FormFieldInput */}
       <div className="card card-body">
         <div className="hitl-form">
           {form.schema.map((field) => {
-            const value = values[field.key]
-
-            if (!field.editable) {
-              return (
-                <div key={field.key} className="hitl-form-row">
-                  <label className="hitl-form-label">{field.label}</label>
-                  <span className="hitl-form-static">
-                    {formatFieldValue(field.key, value, form.current_values)}
-                  </span>
-                </div>
-              )
-            }
-
-            if (field.type === 'select' && field.options?.length) {
-              return (
-                <div key={field.key} className="hitl-form-row">
-                  <label className="hitl-form-label">{field.label}</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    <select
-                      className="hitl-form-input"
-                      value={value != null ? String(value) : ''}
-                      onChange={(e) => handleChange(field.key, e.target.value)}
-                    >
-                      {field.options.map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                    {field.description && (
-                      <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>
-                    )}
-                  </div>
-                </div>
-              )
-            }
-
+            const resolved = form.resolved_options[field.key] ?? (field.options ?? undefined)
             return (
               <div key={field.key} className="hitl-form-row">
                 <label className="hitl-form-label">{field.label}</label>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <input
-                    className="hitl-form-input"
-                    type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : 'text'}
-                    min={field.type === 'number' ? (field.min ?? undefined) : undefined}
-                    max={field.type === 'number' ? (field.max ?? undefined) : undefined}
-                    value={value != null ? String(value) : ''}
-                    onChange={(e) => {
-                      const raw = e.target.value
-                      handleChange(field.key, raw === '' ? null : (field.type === 'number' ? Number(raw) : raw))
-                    }}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+                  <FormFieldInput
+                    field={field}
+                    value={values[field.key]}
+                    onChange={(v) => handleChange(field.key, v)}
+                    resolvedOptions={resolved ?? undefined}
+                    ownerValues={form.current_values}
                   />
                   {field.description && (
                     <span style={{ fontSize: 11, color: 'var(--gray-500)' }}>{field.description}</span>

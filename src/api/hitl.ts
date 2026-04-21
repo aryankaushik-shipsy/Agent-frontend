@@ -8,6 +8,9 @@ export interface HITLActionRequest {
   note?: string
   // Free-text guidance for retrigger actions — steers the agent's re-execution
   instruction?: string
+  // Free-text sibling to a candidate_selection / other `free_text` interaction
+  // — written to state via the action's effects (e.g. execution_variables.<x>).
+  free_text?: string
 }
 
 export async function submitHitlAction(id: number, body: HITLActionRequest): Promise<void> {

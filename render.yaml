@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: agent-frontend
+    name: agent-frontend-hitl
     env: static
     buildCommand: npm run build
     staticPublishPath: dist

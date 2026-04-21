@@ -1,15 +1,43 @@
-export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval'
+export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval' | 'free_text'
 
+export type FormFieldType =
+  | 'string'
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'datetime'
+  | 'boolean'
+  | 'select'
+  | 'multiselect'
+
+// Policy-authored per-field schema. The dashboard renders widgets based on
+// `type` + optional `format`/`language` hints. Only `key`/`label`/`type` are
+// guaranteed — everything else is optional and falls back to safe defaults.
 export interface FormFieldSchema {
   key: string        // dashboard-canonical name
   field?: string     // API sends "field" instead of "key"
   label: string
-  type: 'string' | 'number' | 'date' | 'select' | 'text'
+  type: FormFieldType
   editable: boolean
-  options?: string[]
+  options?: string[] | null
   description?: string | null
+  // Numeric constraints
   min?: number | null
   max?: number | null
+  step?: number | null
+  // Format hint — e.g. "markdown" / "textarea" / "html" / "code"
+  format?: string | null
+  language?: string | null        // for format=code (e.g. "json")
+  // Boolean labels for true/false states
+  true_label?: string | null
+  false_label?: string | null
+  // multiselect cap
+  max_selections?: number | null
+  // Dynamic options — resolved server-side and surfaced in `resolved_options`,
+  // but some payloads still include the source path for reference.
+  options_source_path?: string | null
+  source_path?: string
+  required?: boolean
 }
 
 export interface FormData {
