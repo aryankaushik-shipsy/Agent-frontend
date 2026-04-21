@@ -85,14 +85,22 @@ export function buildActionBody({
 
   if (selectedCandidateId) body.selected_candidate_id = selectedCandidateId
 
-  // candidate_edits: only send the keys the clicked action allows
-  const editableFields = clickedAction.candidates?.editable_fields ?? []
-  if (candidateEdits && editableFields.length > 0) {
-    const allowed: Record<string, unknown> = {}
-    for (const k of editableFields) {
-      if (k in candidateEdits) allowed[k] = candidateEdits[k]
+  // candidate_edits: V2b drops per-action editable_fields — editability is
+  // now per-sub-leaf on the candidate leaf's option_schema (each sub-leaf
+  // carries its own `disabled` flag). We trust the caller only populated
+  // non-disabled sub-leaf edits. For V2a payloads where the action still
+  // has editable_fields, respect that allowlist as a safety net.
+  if (candidateEdits && Object.keys(candidateEdits).length > 0) {
+    const editableFields = clickedAction.candidates?.editable_fields
+    if (editableFields && editableFields.length > 0) {
+      const allowed: Record<string, unknown> = {}
+      for (const k of editableFields) {
+        if (k in candidateEdits) allowed[k] = candidateEdits[k]
+      }
+      if (Object.keys(allowed).length > 0) body.candidate_edits = allowed
+    } else {
+      body.candidate_edits = candidateEdits
     }
-    if (Object.keys(allowed).length > 0) body.candidate_edits = allowed
   }
 
   const trimmedNote = note?.trim()

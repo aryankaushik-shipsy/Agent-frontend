@@ -116,19 +116,36 @@ export interface FormLeaf {
   max_selections?: number | null
 }
 
-// Candidate-picker leaf — one per step when interaction_type includes
+// Candidate leaf — one per step when interaction_type includes
 // "candidate_selection". Selection routes to `selected_candidate_id`;
 // per-field inline edits on the selected card → `candidate_edits`.
+//
+// V2b (current): `type: "candidate"`, `data: [...]`, `option_schema: [...]`
+//   Each card is a mini-form rendered via option_schema (sub-leaves). A
+//   sub-leaf's source_path is relative to the card dict, not graph root.
+//   `disabled: true` sub-leaves are display-only; `disabled: false` are
+//   editable and their values flow to `candidate_edits[sub_leaf.name]`.
+// V2a (legacy): `type: "candidate_picker"`, `options: [...]`,
+//   `display_fields: [...]` — no per-card schema; the dashboard picked
+//   which fields to show via display_fields and which to edit via the
+//   action's `candidates.editable_fields`.
+//
+// The TypeScript interface covers both shapes; the renderer prefers
+// option_schema when present.
 export interface CandidatePickerLeaf {
-  type: 'candidate_picker'
+  type: 'candidate' | 'candidate_picker'
   name: string
   label: string
   value: unknown
   required?: boolean
   disabled?: boolean
-  options: Array<Record<string, unknown>>
   id_field: string
-  display_fields: string[]
+  // V2b
+  data?: Array<Record<string, unknown>>
+  option_schema?: Array<FormLeaf | FormGroup>
+  // V2a
+  options?: Array<Record<string, unknown>>
+  display_fields?: string[]
 }
 
 // Free-text note leaf — value routes to `instruction` (retrigger actions)
@@ -150,13 +167,13 @@ export function isFormGroup(node: FormTreeNode): node is FormGroup {
   return !('type' in node)
 }
 export function isCandidatePicker(node: FormTreeNode): node is CandidatePickerLeaf {
-  return 'type' in node && node.type === 'candidate_picker'
+  return 'type' in node && (node.type === 'candidate' || node.type === 'candidate_picker')
 }
 export function isNoteLeaf(node: FormTreeNode): node is NoteLeaf {
   return 'type' in node && node.type === 'note'
 }
 export function isFormLeaf(node: FormTreeNode): node is FormLeaf {
-  return 'type' in node && node.type !== 'candidate_picker' && node.type !== 'note'
+  return 'type' in node && node.type !== 'candidate' && node.type !== 'candidate_picker' && node.type !== 'note'
 }
 
 export interface CandidateOption {
@@ -209,12 +226,13 @@ export interface ToolArgsData {
 export type ActionRoutingType = 'goto' | 'retrigger' | 'skip'
 export type ActionStyle = 'primary' | 'danger' | 'secondary' | 'success' | string
 
-// Per-action candidate-selection rules — only present on actions that operate on
-// a candidate_selection step. `required=true` means the submit is blocked until
-// the user picks a candidate. `editable_fields` lists keys the user is allowed
-// to edit on the chosen candidate before submit; those edits go in `candidate_edits`.
+// Per-action candidate-selection gate. V2b dropped per-action `editable_fields`
+// — editability is now per-leaf on the candidate leaf's `option_schema`
+// (each sub-leaf has its own `disabled`). `editable_fields` is kept optional
+// for backward compatibility with older payloads.
 export interface InterruptActionCandidates {
   required?: boolean
+  /** @deprecated V2a only — in V2b, editability is per-sub-leaf in option_schema. */
   editable_fields?: string[]
 }
 

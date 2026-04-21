@@ -166,21 +166,41 @@ export function getCandidateData(intervention: Intervention): CandidateSelection
   const v1 = msg.data?.candidate_selection
   if (v1) return v1
 
-  // V2: look for a candidate_picker leaf anywhere in the form tree
+  // V2a/V2b: look for a candidate/candidate_picker leaf in the form tree.
   const form = msg.data?.form
   if (form && isV2Schema(form.schema)) {
     const picker = flattenLeaves(form.schema as FormSection[]).find(isCandidatePicker) as CandidatePickerLeaf | undefined
     if (!picker) return null
+
+    // Prefer V2b fields; synthesize display_fields from option_schema sub-leaves
+    // so downstream code that still reads display_fields / options keeps working.
+    const cards = (picker.data ?? picker.options ?? []) as Array<Record<string, unknown>>
+    let displayFields = picker.display_fields
+    if (!displayFields && picker.option_schema) {
+      displayFields = picker.option_schema
+        .filter((n): n is FormLeaf => 'type' in n)
+        .map((l) => l.name)
+    }
     return {
       id_field: picker.id_field,
-      display_fields: picker.display_fields,
+      display_fields: displayFields ?? [],
       source_path: '',
-      // Cast to the legacy CandidateOption shape — downstream code reads
-      // fields dynamically so a loose Record[] is safe here.
-      options: picker.options as unknown as CandidateSelectionData['options'],
+      options: cards as unknown as CandidateSelectionData['options'],
     }
   }
   return null
+}
+
+/**
+ * Surface the full candidate leaf (V2b-shaped) so callers that want to render
+ * cards via `option_schema` can do so. Returns `null` for pure-V1 / V2a
+ * payloads — those callers should use `getCandidateData` + `display_fields`.
+ */
+export function getCandidateLeaf(intervention: Intervention): CandidatePickerLeaf | null {
+  const form = intervention.interrupt_message?.data?.form
+  if (!form || !isV2Schema(form.schema)) return null
+  const picker = flattenLeaves(form.schema as FormSection[]).find(isCandidatePicker) as CandidatePickerLeaf | undefined
+  return picker ?? null
 }
 
 // send_email tool injects these args at runtime (send_to from the customer's

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
 import { getTierInfo, getCustomerName } from '../../utils/status'
-import { getActionItems, getCandidateData, getFormData, formatFieldValue, humanizeKey } from '../../utils/hitl'
+import { getActionItems, getCandidateData, getCandidateLeaf, getFormData, formatFieldValue, humanizeKey } from '../../utils/hitl'
 import { buildActionBody } from '../../utils/buildActionBody'
 import { isAboveThreshold } from '../../utils/margin'
 import { TIER_MINIMUMS } from '../../constants'
@@ -11,7 +11,7 @@ import { ActionButtons } from './ActionButtons'
 import { FormFieldRow } from './FormFieldRow'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
-import type { CandidateOption, InterruptActionItem, FormSection } from '../../types/hitl'
+import type { CandidateOption, InterruptActionItem, FormSection, FormLeaf } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -27,6 +27,7 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
   const navigate = useNavigate()
   const customer = getCustomerName(job)
   const candidateData = getCandidateData(intervention)
+  const candidateLeaf = getCandidateLeaf(intervention)
   const msg = intervention.interrupt_message
   const ctx = msg?.context ?? {}
   const constraints = msg?.constraints ?? {}
@@ -181,21 +182,81 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         })}
       </div>
 
-      {/* Editable fields on the selected candidate, if the policy allows any */}
-      {selectedId && actionItems.some((a) => (a.candidates?.editable_fields?.length ?? 0) > 0) && (
-        <div className="hitl-form" style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 6 }}>
-            Edit the selected candidate before confirming:
-          </div>
-          {actionItems
-            .flatMap((a) => a.candidates?.editable_fields ?? [])
-            .filter((f, i, arr) => arr.indexOf(f) === i)
-            .map((field) => {
-              const selected = options.find(
-                (o) => String((o as unknown as Record<string, unknown>)[id_field]) === selectedId
-              ) as Record<string, unknown> | undefined
-              const original = selected?.[field]
-              const current = candidateEdits[field] ?? original
+      {/* Editable fields on the selected candidate.
+          V2b: iterate the candidate leaf's `option_schema` and render every
+               sub-leaf with `disabled: false`. Each sub-leaf's `type` drives
+               the widget (respects the policy-declared text / number / etc.)
+               so we don't fall back to guessing from JS value types.
+          V2a: fall back to the per-action `editable_fields` allowlist. */}
+      {selectedId && (() => {
+        const selectedCard = options.find(
+          (o) => String((o as unknown as Record<string, unknown>)[id_field]) === selectedId
+        ) as Record<string, unknown> | undefined
+        if (!selectedCard) return null
+
+        // Collect editable sub-leaves from option_schema (V2b). Groups have
+        // no `type`; FormLeaves always do. `disabled: true` leaves are
+        // display-only per the policy.
+        const v2bSubLeaves: FormLeaf[] = []
+        if (candidateLeaf?.option_schema) {
+          for (const node of candidateLeaf.option_schema) {
+            if ('type' in node && !node.disabled) {
+              v2bSubLeaves.push(node)
+            }
+          }
+        }
+
+        // V2a fallback: per-action editable_fields allowlist.
+        const v2aEditableFields = Array.from(
+          new Set(actionItems.flatMap((a) => a.candidates?.editable_fields ?? []))
+        )
+
+        if (v2bSubLeaves.length === 0 && v2aEditableFields.length === 0) return null
+
+        return (
+          <div className="hitl-form" style={{ marginTop: 12 }}>
+            <div style={{ fontSize: 12, color: 'var(--gray-500)', marginBottom: 6 }}>
+              Edit the selected candidate before confirming:
+            </div>
+
+            {v2bSubLeaves.map((leaf) => {
+              const original = selectedCard[leaf.name]
+              const current = leaf.name in candidateEdits ? candidateEdits[leaf.name] : original
+              return (
+                <div key={leaf.name} className="hitl-form-row">
+                  <label className="hitl-form-label">{leaf.label}</label>
+                  <input
+                    className="hitl-form-input"
+                    // Respect the policy-declared widget type for text vs number.
+                    // (Richer widgets like select/date can be added here later;
+                    // the policy currently only declares number/text editables
+                    // on candidates.)
+                    type={leaf.type === 'number' ? 'number' : leaf.type === 'email' ? 'email' : 'text'}
+                    min={leaf.validation?.min ?? undefined}
+                    max={leaf.validation?.max ?? undefined}
+                    step={leaf.validation?.step ?? undefined}
+                    value={current != null ? String(current) : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      const next = leaf.type === 'number'
+                        ? (raw === '' ? null : Number(raw))
+                        : raw
+                      setCandidateEdits((prev) => {
+                        if (next === original) {
+                          const { [leaf.name]: _removed, ...rest } = prev
+                          return rest
+                        }
+                        return { ...prev, [leaf.name]: next }
+                      })
+                    }}
+                  />
+                </div>
+              )
+            })}
+
+            {v2bSubLeaves.length === 0 && v2aEditableFields.map((field) => {
+              const original = selectedCard[field]
+              const current = field in candidateEdits ? candidateEdits[field] : original
               return (
                 <div key={field} className="hitl-form-row">
                   <label className="hitl-form-label">{humanizeKey(field)}</label>
@@ -220,8 +281,9 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
                 </div>
               )
             })}
-        </div>
-      )}
+          </div>
+        )
+      })()}
 
       {hasFreeText && (
         <div className="hitl-form-row" style={{ marginTop: 10 }}>
