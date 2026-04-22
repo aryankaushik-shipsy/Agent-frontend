@@ -42,7 +42,7 @@ export function ApprovalEmailReview() {
       // Redirect to dashboard after submit — hook already invalidated the
       // jobs / insights / job-detail caches in its onSuccess, so the
       // approvals badge + recent-RFQs list will refresh on arrival.
-      navigate('/dashboard')
+      navigate('/')
     } finally {
       setSubmitting(false)
     }

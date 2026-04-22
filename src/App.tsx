@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Layout } from './components/layout/Layout'
 import { ToastProvider } from './components/ui/Toast'
@@ -32,6 +32,9 @@ export default function App() {
           <Routes>
             <Route element={<Layout />}>
               <Route index element={<Dashboard />} />
+              {/* `/dashboard` alias — the sidebar link and most navigation
+                  uses `/`, but some code paths / external links reach here. */}
+              <Route path="dashboard" element={<Dashboard />} />
               <Route path="new-rfq" element={<NewRFQ />} />
               <Route path="pipeline" element={<QuotePipeline />} />
               <Route path="pipeline/:jobId/quote" element={<QuoteBuilder />} />
@@ -44,6 +47,10 @@ export default function App() {
               <Route path="approvals/:jobId/email" element={<ApprovalEmailReview />} />
               <Route path="audit" element={<EmailAuditTrail />} />
               <Route path="audit/:jobId" element={<EmailAuditTrail />} />
+              {/* Unknown URLs inside the layout fall back to the dashboard
+                  so a bad nav ('/dashboard', a stale bookmark, a typo in a
+                  redirect) doesn't leave the user on a blank white page. */}
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
           </Routes>
         </BrowserRouter>

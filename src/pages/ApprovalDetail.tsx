@@ -25,7 +25,7 @@ export function ApprovalDetail() {
       // queue / pending badge there will reflect the just-actioned item.
       queryClient.invalidateQueries({ queryKey: ['job', job?.id] })
       setDone(true)
-      navigate('/dashboard')
+      navigate('/')
     } finally {
       setLoadingId(null)
     }
