@@ -50,7 +50,7 @@ export function QuoteBuilder() {
   // When there's no Type 1 intervention (e.g. workflow skips the form confirmation
   // step), synthesise a FormData-like object from the rfq_agent task output so the
   // ContextBanner and QuoteSummarySidebar can still render shipment details.
-  const effectiveType1: FormData = type1 ?? (() => {
+  const baseType1: FormData = type1 ?? (() => {
     const agentTask = (job.tasks ?? []).find(
       (t) => t.title === 'rfq_agent' && t.output_json
     )
@@ -70,6 +70,25 @@ export function QuoteBuilder() {
       resolved_options: {},
     }
   })()
+
+  // The Type 1 intervention's `current_values` is frozen at extraction time
+  // (e.g. weight_kg = declared_weight 100). The rating engine recalculates
+  // chargeable weight from dimensions (volumetric weight) and carriers are
+  // priced on that — which may differ from what was extracted. Overlay the
+  // rating-time shipment values on top of Type 1 so the banner / sidebar
+  // reflect what's actually being quoted.
+  const ratingShipment: Record<string, unknown> | null = (() => {
+    const calc = (job.tasks ?? []).find((t) => t.title === 'calculate_final_price')
+    const calcRow = (calc?.output_json as { results?: Array<Record<string, unknown>> } | undefined)?.results?.[0]
+    if (calcRow) return calcRow
+    const rate = (job.tasks ?? []).find((t) => t.title === 'get_rate')
+    const rateRow = (rate?.output_json as { price_request_items?: Array<Record<string, unknown>> } | undefined)?.price_request_items?.[0]
+    return rateRow ?? null
+  })()
+
+  const effectiveType1: FormData = ratingShipment
+    ? { ...baseType1, current_values: { ...(baseType1.current_values ?? {}), ...ratingShipment } }
+    : baseType1
 
   // Prefer full carrier data from calculate_final_price task (has breakdown, markup, subtotal).
   // Fall back to candidate_selection options from HITL payload.
