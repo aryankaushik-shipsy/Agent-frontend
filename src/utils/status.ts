@@ -9,46 +9,62 @@ export interface StatusResult {
   variant: BadgeVariant
 }
 
-// Task title that confirms the final quote email has been dispatched and the job
-// is now waiting for customer acknowledgement. send_email is intentionally excluded
-// as it fires at intermediate steps too and would produce false positives.
-const QUOTE_SENT_TASK_KEYS = ['carrier_1', 'carrier_2']
-
-/**
- * Returns true when a job is `interrupted` but the quote email has already been
- * dispatched — indicated by a completed task matching QUOTE_SENT_TASK_KEYS.
- * The job will stay interrupted until the customer responds, so we need this
- * separate check to avoid labelling it as a blocked/error state.
- */
 /** Returns true when the job was submitted via the platform form (not an inbound email). */
 export function isPlatformJob(job: { input_json?: { type?: string } | null } | null | undefined): boolean {
   return job?.input_json?.type === 'Platform'
 }
 
-/** Returns true when the send-email task has completed, regardless of job type. */
-function isEmailSent(tasks: Task[] | undefined): boolean {
-  return (tasks ?? []).some(
-    (t) =>
-      QUOTE_SENT_TASK_KEYS.some((key) => t.title?.toLowerCase().includes(key)) &&
-      (t.status === 'success' || t.status === 'completed')
+/**
+ * Returns true when the job's quote email has been dispatched.
+ *
+ * Two signals, in priority order:
+ *   1. The `send_email` task reached `success` / `completed` — the backend
+ *      has fully processed the send. Authoritative.
+ *   2. The Type-3 email-review intervention has `action_taken === 'approved'`
+ *      AND the `generate_quotation` task completed beforehand. This covers
+ *      the window between the reviewer clicking Send Email and the backend
+ *      flipping `send_email.status` from `interrupted` → `success` — the
+ *      email has been dispatched even though the task record hasn't caught
+ *      up yet. The `generate_quotation` gate filters out intermediate
+ *      clarification / apology emails, which also flow through Type 3.
+ */
+function isEmailSent(job: { tasks?: Task[]; interventions?: JobDetail['interventions'] }): boolean {
+  const tasks = job.tasks ?? []
+
+  // 1) send_email task has completed on the server
+  const sendEmailDone = tasks.some(
+    (t) => t.title?.toLowerCase() === 'send_email' && (t.status === 'success' || t.status === 'completed')
   )
+  if (sendEmailDone) return true
+
+  // 2) Type 3 approved AND quote already generated — the reviewer sent the
+  //    final quote email; we're in the task-update lag window.
+  const quoteGenerated = tasks.some(
+    (t) => t.title === 'generate_quotation' && (t.status === 'success' || t.status === 'completed')
+  )
+  if (!quoteGenerated) return false
+  return (job.interventions ?? []).some((i) => {
+    const types = i.interrupt_message?.interaction_type ?? []
+    return types.includes('tool_args') && i.action_taken === 'approved'
+  })
 }
 
-export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean {
+export function isAwaitingAck(job: { status: string; tasks?: Task[]; interventions?: JobDetail['interventions'] }): boolean {
   if (job.status !== 'interrupted') return false
-  return isEmailSent(job.tasks)
+  return isEmailSent(job)
 }
 
 export function deriveJobStatus(
   status: JobStatus,
   subtype: HitlSubtype | null,
-  tasks?: Task[]
+  tasks?: Task[],
+  interventions?: JobDetail['interventions']
 ): StatusResult {
   if (status === 'queued') return { label: 'Queued', variant: 'gray' }
   if (status === 'success') return { label: 'Resolved', variant: 'green' }
   if (status === 'failed') return { label: 'Failed', variant: 'red' }
   if (status === 'interrupted') {
-    if (isAwaitingAck({ status, tasks }))
+    if (isAwaitingAck({ status, tasks, interventions }))
       return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     const ratesDone = (tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&
@@ -85,9 +101,9 @@ export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null)
     // action_taken=null) don't keep "Price Negotiation" latched.
     const hasPending = getPendingIntervention(job.interventions) != null
     // Most advanced: quote was sent AND a new HITL has been triggered (price negotiation)
-    if (isEmailSent(job.tasks) && hasPending) return { label: 'Price Negotiation', variant: 'yellow' }
+    if (isEmailSent(job) && hasPending) return { label: 'Price Negotiation', variant: 'yellow' }
     // Quote sent, no pending intervention — waiting on customer reply
-    if (isEmailSent(job.tasks)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
+    if (isEmailSent(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     // Pre-send HITL stages
     if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
     if (subtype === 'type2_step0') return { label: 'Carrier Selection Pending', variant: 'purple' }
