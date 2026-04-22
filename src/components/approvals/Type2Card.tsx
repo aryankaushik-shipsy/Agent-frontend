@@ -11,7 +11,8 @@ import { ActionButtons } from './ActionButtons'
 import { FormFieldRow } from './FormFieldRow'
 import type { JobDetail, Intervention } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
-import type { CandidateOption, InterruptActionItem, FormSection, FormLeaf } from '../../types/hitl'
+import type { CandidateOption, InterruptActionItem, FormSection, FormLeaf, CandidateSection } from '../../types/hitl'
+import { isCandidateSectionArray, isSelectorOptionArray } from '../../types/hitl'
 
 interface Props {
   job: JobDetail
@@ -183,10 +184,12 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
       </div>
 
       {/* Editable fields on the selected candidate.
-          V2b: iterate the candidate leaf's `option_schema` and render every
-               sub-leaf with `disabled: false`. Each sub-leaf's `type` drives
-               the widget (respects the policy-declared text / number / etc.)
-               so we don't fall back to guessing from JS value types.
+          V2c: iterate `option_schema[i].schema` for the section matching
+               the selected id — every sub-leaf has its value baked in,
+               so no source_path resolution needed; `disabled: false`
+               sub-leaves are editable.
+          V2b: iterate the flat `option_schema` template applied to every
+               card; resolve values against the selected card dict.
           V2a: fall back to the per-action `editable_fields` allowlist. */}
       {selectedId && (() => {
         const selectedCard = options.find(
@@ -194,11 +197,22 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
         ) as Record<string, unknown> | undefined
         if (!selectedCard) return null
 
-        // Collect editable sub-leaves from option_schema (V2b). Groups have
-        // no `type`; FormLeaves always do. `disabled: true` leaves are
-        // display-only per the policy.
+        // V2c: find the pre-rendered section for the selected id.
+        let v2cSection: CandidateSection | null = null
+        if (candidateLeaf?.option_schema && isCandidateSectionArray(candidateLeaf.option_schema)) {
+          // Match by id first (authoritative), then fall back to positional
+          // via the selector list if ids don't compare cleanly.
+          const sections = candidateLeaf.option_schema
+          v2cSection = sections.find((s) => String(s.id) === selectedId) ?? null
+          if (!v2cSection && candidateLeaf.options && isSelectorOptionArray(candidateLeaf.options)) {
+            const idx = candidateLeaf.options.findIndex((o) => String(o.id) === selectedId)
+            if (idx >= 0 && idx < sections.length) v2cSection = sections[idx]
+          }
+        }
+
+        // V2b editable sub-leaves: flat option_schema template.
         const v2bSubLeaves: FormLeaf[] = []
-        if (candidateLeaf?.option_schema) {
+        if (candidateLeaf?.option_schema && !isCandidateSectionArray(candidateLeaf.option_schema)) {
           for (const node of candidateLeaf.option_schema) {
             if ('type' in node && !node.disabled) {
               v2bSubLeaves.push(node)
@@ -206,12 +220,19 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
           }
         }
 
+        // V2c editable sub-leaves: collected from the matched section.
+        const v2cSubLeaves: FormLeaf[] = v2cSection
+          ? v2cSection.schema.filter((n): n is FormLeaf => 'type' in n && !n.disabled)
+          : []
+
         // V2a fallback: per-action editable_fields allowlist.
         const v2aEditableFields = Array.from(
           new Set(actionItems.flatMap((a) => a.candidates?.editable_fields ?? []))
         )
 
-        if (v2bSubLeaves.length === 0 && v2aEditableFields.length === 0) return null
+        const unifiedSubLeaves = v2cSubLeaves.length > 0 ? v2cSubLeaves : v2bSubLeaves
+
+        if (unifiedSubLeaves.length === 0 && v2aEditableFields.length === 0) return null
 
         return (
           <div className="hitl-form" style={{ marginTop: 12 }}>
@@ -219,8 +240,11 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
               Edit the selected candidate before confirming:
             </div>
 
-            {v2bSubLeaves.map((leaf) => {
-              const original = selectedCard[leaf.name]
+            {unifiedSubLeaves.map((leaf) => {
+              // V2c leaves ship with `value` baked in on the section's
+              // sub-leaf. V2b leaves are a template, so we resolve
+              // against the raw selected card dict.
+              const original = leaf.value !== undefined ? leaf.value : selectedCard[leaf.name]
               const current = leaf.name in candidateEdits ? candidateEdits[leaf.name] : original
               return (
                 <div key={leaf.name} className="hitl-form-row">
@@ -254,7 +278,7 @@ function Step0({ job, intervention, onAction, loading }: Omit<Props, 'subtype'>)
               )
             })}
 
-            {v2bSubLeaves.length === 0 && v2aEditableFields.map((field) => {
+            {unifiedSubLeaves.length === 0 && v2aEditableFields.map((field) => {
               const original = selectedCard[field]
               const current = field in candidateEdits ? candidateEdits[field] : original
               return (

@@ -13,7 +13,14 @@ import type {
   FormTreeNode,
   FormFieldSchema,
 } from '../types/hitl'
-import { isFormGroup, isCandidatePicker, isNoteLeaf, isFormLeaf } from '../types/hitl'
+import {
+  isFormGroup,
+  isCandidatePicker,
+  isNoteLeaf,
+  isFormLeaf,
+  isCandidateSectionArray,
+  isSelectorOptionArray,
+} from '../types/hitl'
 import { formatDate } from './time'
 
 // -----------------------------------------------------------------------------
@@ -166,29 +173,54 @@ export function getCandidateData(intervention: Intervention): CandidateSelection
   const v1 = msg.data?.candidate_selection
   if (v1) return v1
 
-  // V2a/V2b: look for a candidate/candidate_picker leaf in the form tree.
+  // V2a / V2b / V2c: a candidate(_picker) leaf inside the form tree.
   const form = msg.data?.form
-  if (form && isV2Schema(form.schema)) {
-    const picker = flattenLeaves(form.schema as FormSection[]).find(isCandidatePicker) as CandidatePickerLeaf | undefined
-    if (!picker) return null
+  if (!form || !isV2Schema(form.schema)) return null
+  const picker = flattenLeaves(form.schema as FormSection[]).find(isCandidatePicker) as CandidatePickerLeaf | undefined
+  if (!picker) return null
 
-    // Prefer V2b fields; synthesize display_fields from option_schema sub-leaves
-    // so downstream code that still reads display_fields / options keeps working.
-    const cards = (picker.data ?? picker.options ?? []) as Array<Record<string, unknown>>
-    let displayFields = picker.display_fields
-    if (!displayFields && picker.option_schema) {
-      displayFields = picker.option_schema
-        .filter((n): n is FormLeaf => 'type' in n)
+  // ---- Raw cards -----------------------------------------------------------
+  // V2b/V2c expose raw cards under `data`. V2a kept them under `options`
+  // (as raw card dicts, not the V2c selector shape).
+  let cards: Array<Record<string, unknown>> = []
+  if (picker.data && picker.data.length > 0) {
+    cards = picker.data
+  } else if (picker.options && !isSelectorOptionArray(picker.options)) {
+    cards = picker.options as Array<Record<string, unknown>>
+  }
+
+  // ---- id_field ------------------------------------------------------------
+  // V2a/V2b send it explicitly. V2c doesn't — but the positional invariant
+  // `data[i][id_field] === options[i].id` lets us recover it: find the key
+  // in data[0] whose value matches options[0].id.
+  let idField: string | undefined = picker.id_field
+  if (!idField && isSelectorOptionArray(picker.options) && cards.length > 0 && picker.options.length > 0) {
+    const firstId = picker.options[0].id
+    idField = Object.keys(cards[0]).find((k) => cards[0][k] === firstId)
+  }
+
+  // ---- display_fields ------------------------------------------------------
+  // V2c: sub-leaf names inside the first pre-rendered section's schema.
+  // V2b: sub-leaf names in the flat option_schema template.
+  // V2a: whatever the payload declared.
+  let displayFields = picker.display_fields
+  if (!displayFields && picker.option_schema) {
+    if (isCandidateSectionArray(picker.option_schema)) {
+      const first = picker.option_schema[0]
+      displayFields = first.schema.filter(isFormLeaf).map((l) => l.name)
+    } else {
+      displayFields = (picker.option_schema as Array<FormLeaf | FormGroup>)
+        .filter(isFormLeaf)
         .map((l) => l.name)
     }
-    return {
-      id_field: picker.id_field,
-      display_fields: displayFields ?? [],
-      source_path: '',
-      options: cards as unknown as CandidateSelectionData['options'],
-    }
   }
-  return null
+
+  return {
+    id_field: idField ?? 'id',
+    display_fields: displayFields ?? [],
+    source_path: '',
+    options: cards as unknown as CandidateSelectionData['options'],
+  }
 }
 
 /**

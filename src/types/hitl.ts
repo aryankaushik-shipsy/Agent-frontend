@@ -116,22 +116,51 @@ export interface FormLeaf {
   max_selections?: number | null
 }
 
+/**
+ * V2c pre-rendered candidate section — one per card. Shape mirrors a
+ * regular `FormSection`, with an extra `id` matching `options[i].id` and
+ * `data[i][<authored id_field>]`. Sub-leaves carry `value` baked in plus
+ * a leaf-relative `source_path` (`data[i].<field>`) for debug.
+ */
+export interface CandidateSection {
+  id: unknown
+  title: string
+  schema: Array<FormLeaf | FormGroup>
+}
+
+/**
+ * V2c selector entry — a pair the dashboard can render as a dropdown /
+ * chip / card label. `id` is authoritative for `selected_candidate_id`
+ * on submit.
+ */
+export interface CandidateSelectorOption {
+  id: unknown
+  label: string
+}
+
 // Candidate leaf — one per step when interaction_type includes
 // "candidate_selection". Selection routes to `selected_candidate_id`;
-// per-field inline edits on the selected card → `candidate_edits`.
+// per-field inline edits on the selected section → `candidate_edits`.
 //
-// V2b (current): `type: "candidate"`, `data: [...]`, `option_schema: [...]`
-//   Each card is a mini-form rendered via option_schema (sub-leaves). A
-//   sub-leaf's source_path is relative to the card dict, not graph root.
-//   `disabled: true` sub-leaves are display-only; `disabled: false` are
-//   editable and their values flow to `candidate_edits[sub_leaf.name]`.
-// V2a (legacy): `type: "candidate_picker"`, `options: [...]`,
-//   `display_fields: [...]` — no per-card schema; the dashboard picked
-//   which fields to show via display_fields and which to edit via the
-//   action's `candidates.editable_fields`.
+// Three progressively-unified wire shapes:
 //
-// The TypeScript interface covers both shapes; the renderer prefers
-// option_schema when present.
+// V2c (current): `type: "candidate"`, `data: [...]` (raw cards, verbatim),
+//   `options: [{id, label}]` (selector), `option_schema: CandidateSection[]`
+//   (per-card rendered forms, SAME shape as any other Section). The three
+//   lists are positionally parallel — `data[i][<id_field>] === options[i].id
+//   === option_schema[i].id` — so the dashboard never resolves source_paths
+//   and doesn't need `id_field` to do its job.
+//
+// V2b (transitional): `type: "candidate"`, `data: [...]`, `id_field: str`,
+//   `option_schema: (FormLeaf|FormGroup)[]` — ONE template applied to every
+//   card; the client resolved `source_path` against each card dict.
+//
+// V2a (legacy): `type: "candidate_picker"`, `options: [...]` (raw cards),
+//   `display_fields: [...]` — no schema; the action item's
+//   `candidates.editable_fields` gated editability.
+//
+// The dashboard renderer prefers V2c when present, falls back to V2b,
+// then V2a.
 export interface CandidatePickerLeaf {
   type: 'candidate' | 'candidate_picker'
   name: string
@@ -139,12 +168,22 @@ export interface CandidatePickerLeaf {
   value: unknown
   required?: boolean
   disabled?: boolean
-  id_field: string
-  // V2b
+
+  // V2b / V2c — raw cards, verbatim
   data?: Array<Record<string, unknown>>
-  option_schema?: Array<FormLeaf | FormGroup>
-  // V2a
-  options?: Array<Record<string, unknown>>
+
+  // V2a raw cards OR V2c selector list (disambiguated at read time by shape)
+  options?: Array<Record<string, unknown> | CandidateSelectorOption>
+
+  // V2b template OR V2c pre-rendered sections (disambiguated at read time)
+  option_schema?: Array<FormLeaf | FormGroup> | CandidateSection[]
+
+  // V2a / V2b only — the key inside each card that identifies it. V2c
+  // doesn't need this on the wire because the three parallel lists agree
+  // on the id directly.
+  id_field?: string
+
+  // V2a only
   display_fields?: string[]
 }
 
@@ -174,6 +213,26 @@ export function isNoteLeaf(node: FormTreeNode): node is NoteLeaf {
 }
 export function isFormLeaf(node: FormTreeNode): node is FormLeaf {
   return 'type' in node && node.type !== 'candidate' && node.type !== 'candidate_picker' && node.type !== 'note'
+}
+
+// V2c option_schema is a list of pre-rendered Sections (each has `id` +
+// `title` + `schema`). V2b option_schema is a flat list of leaves/groups
+// — no wrapping section. Check the first entry.
+export function isCandidateSectionArray(os: unknown): os is CandidateSection[] {
+  if (!Array.isArray(os) || os.length === 0) return false
+  const first = os[0] as Record<string, unknown> | undefined
+  if (!first || typeof first !== 'object') return false
+  return 'schema' in first && Array.isArray((first as { schema: unknown }).schema) && 'id' in first
+}
+
+// V2c options is a list of {id, label} selectors (distinct from V2a where
+// `options` is the raw card dicts). We sniff the first entry for keys
+// that look like a selector and nothing else a raw card would have.
+export function isSelectorOptionArray(os: unknown): os is CandidateSelectorOption[] {
+  if (!Array.isArray(os) || os.length === 0) return false
+  const first = os[0] as Record<string, unknown> | undefined
+  if (!first || typeof first !== 'object') return false
+  return 'id' in first && 'label' in first && Object.keys(first).length <= 3
 }
 
 export interface CandidateOption {
