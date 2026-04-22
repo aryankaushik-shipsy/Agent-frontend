@@ -138,12 +138,48 @@ export function getTraceReference(
 type ShipmentRow = { origin?: string; destination?: string; mode?: string; weight_kg?: number; incoterms?: string; commodity?: string }
 
 /**
- * Returns shipment fields from the Type 1 HITL record's form current_values.
- * This is the authoritative source per dashboard-scope-v2.md §1.2 — the form
- * data reflects reviewer-corrected values written back to state.
- * Returns null if no Type 1 record exists yet (job still in extraction phase).
+ * Returns the authoritative shipment fields for display.
+ *
+ * Priority order — each source is a snapshot taken at a different point in
+ * the workflow, and we want the latest one that reflects reviewer edits:
+ *
+ *   1. `calculate_final_price.results[0]` — post-edit values the pricing
+ *      engine actually used. This is the most authoritative source once the
+ *      agent has run rating.
+ *   2. `get_rate.price_request_items[0]` — also post-edit; used before pricing
+ *      runs (same schema as calculate_final_price carriers).
+ *   3. Type 1 HITL `current_values` — frozen at extraction time. Correct
+ *      only until the reviewer approves Type 1 with edits; after that it
+ *      lags reality (the banner kept showing 100 kg while the carrier
+ *      cards and downstream quote were priced at 250 kg).
+ *   4. Input JSON row — last-ditch fallback.
  */
 export function getShipmentFromHitl(job: JobDetail): ShipmentRow | null {
+  const toRow = (src: Record<string, unknown> | undefined | null): ShipmentRow | null => {
+    if (!src || typeof src !== 'object') return null
+    return {
+      origin: src.origin as string | undefined,
+      destination: src.destination as string | undefined,
+      mode: src.mode as string | undefined,
+      weight_kg: src.weight_kg as number | undefined,
+      incoterms: src.incoterms as string | undefined,
+      commodity: src.commodity as string | undefined,
+    }
+  }
+
+  // 1. calculate_final_price.results[0]
+  const finalPrice = (job.tasks ?? []).find((t) => t.title === 'calculate_final_price')
+  const finalRow = (finalPrice?.output_json as { results?: Array<Record<string, unknown>> } | undefined)?.results?.[0]
+  const finalShipment = toRow(finalRow)
+  if (finalShipment?.origin && finalShipment?.destination) return finalShipment
+
+  // 2. get_rate.price_request_items[0]
+  const rate = (job.tasks ?? []).find((t) => t.title === 'get_rate')
+  const rateRow = (rate?.output_json as { price_request_items?: Array<Record<string, unknown>> } | undefined)?.price_request_items?.[0]
+  const rateShipment = toRow(rateRow)
+  if (rateShipment?.origin && rateShipment?.destination) return rateShipment
+
+  // 3. Type 1 HITL current_values
   for (const intervention of job.interventions ?? []) {
     const msg = intervention.interrupt_message
     if (!msg) continue
@@ -154,17 +190,10 @@ export function getShipmentFromHitl(job: JobDetail): ShipmentRow | null {
       // synthesized into a flat current_values map the same way as V1.
       const form = getFormData(intervention)
       const cv = form?.current_values ?? msg.data?.form?.current_values
-      if (!cv) continue
-      return {
-        origin: cv.origin as string | undefined,
-        destination: cv.destination as string | undefined,
-        mode: cv.mode as string | undefined,
-        weight_kg: cv.weight_kg as number | undefined,
-        incoterms: cv.incoterms as string | undefined,
-        commodity: cv.commodity as string | undefined,
-      }
+      if (cv) return toRow(cv)
     }
   }
+
   return null
 }
 
