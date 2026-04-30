@@ -169,6 +169,9 @@ export function QuotePreview() {
               <Row label="Destination" value={String(cv.destination ?? '—')} />
               <Row label="Mode" value={String(cv.mode ?? '—')} />
               <Row label="Weight" value={cv.weight_kg != null ? `${cv.weight_kg} kg` : '—'} />
+              {(selectedCarrier.incoterm ?? cv.incoterms) != null && (
+                <Row label="Incoterm" value={String(selectedCarrier.incoterm ?? cv.incoterms)} />
+              )}
               {cv.date != null && <Row label="Date" value={formatDate(String(cv.date))} />}
             </section>
           </div>
@@ -178,12 +181,30 @@ export function QuotePreview() {
               Selected Carrier &amp; Pricing
             </div>
             <Row label="Carrier" value={selectedCarrier.carrier} bold />
-            {selectedCarrier.validity_date && (
-              <Row label="Quote Valid Until" value={formatDate(selectedCarrier.validity_date)} />
+            {selectedCarrier.quote_basis && (
+              <Row label="Quote Basis" value={selectedCarrier.quote_basis} />
             )}
-            {(selectedCarrier.breakdown ?? []).map((line, i) => (
-              <Row key={i} label={line.charge} value={`${selectedCarrier.currency_code} ${line.amount.toLocaleString()}`} />
-            ))}
+            {selectedCarrier.transit_days != null && (
+              <Row label="Transit" value={`${selectedCarrier.transit_days} day${selectedCarrier.transit_days !== 1 ? 's' : ''}`} />
+            )}
+            {selectedCarrier.validity_days != null ? (
+              <Row label="Validity" value={`${selectedCarrier.validity_days} day${selectedCarrier.validity_days !== 1 ? 's' : ''}`} />
+            ) : selectedCarrier.validity_date ? (
+              <Row label="Quote Valid Until" value={formatDate(selectedCarrier.validity_date)} />
+            ) : null}
+            {(selectedCarrier.breakdown ?? []).map((line, i) => {
+              const sourceSuffix = line.rate_source === 'vendor' ? ' · Vendor'
+                : line.rate_source === 'master' ? ' · Master'
+                : ''
+              return (
+                <Row
+                  key={i}
+                  label={`${line.charge}${sourceSuffix}`}
+                  value={`${selectedCarrier.currency_code} ${line.amount.toLocaleString()}`}
+                  caption={line.note ?? undefined}
+                />
+              )
+            })}
             {selectedCarrier.markup_pct != null && (
               <Row label="Markup" value={`${selectedCarrier.markup_pct}%`} />
             )}
@@ -207,6 +228,19 @@ export function QuotePreview() {
                 {selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}
               </span>
             </div>
+
+            {(selectedCarrier.exclusions?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--gray-100)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Exclusions
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.6 }}>
+                  {selectedCarrier.exclusions!.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -224,13 +258,18 @@ export function QuotePreview() {
   )
 }
 
-function Row({ label, value, bold, highlight }: { label: string; value: string; bold?: boolean; highlight?: boolean }) {
+function Row({ label, value, bold, highlight, caption }: { label: string; value: string; bold?: boolean; highlight?: boolean; caption?: string }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontSize: 13, borderBottom: '1px solid var(--gray-50)' }}>
-      <span style={{ color: 'var(--gray-500)' }}>{label}</span>
-      <span style={{ fontWeight: bold ? 600 : 400, color: highlight ? 'var(--green-600, #16a34a)' : undefined }}>
-        {value}
-      </span>
+    <div style={{ padding: '5px 0', fontSize: 13, borderBottom: '1px solid var(--gray-50)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <span style={{ color: 'var(--gray-500)' }}>{label}</span>
+        <span style={{ fontWeight: bold ? 600 : 400, color: highlight ? 'var(--green-600, #16a34a)' : undefined }}>
+          {value}
+        </span>
+      </div>
+      {caption && (
+        <div style={{ fontSize: 11, color: 'var(--gray-400)', marginTop: 2, fontStyle: 'italic' }}>{caption}</div>
+      )}
     </div>
   )
 }

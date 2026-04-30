@@ -71,6 +71,11 @@ export function detectHitlSubtype(intervention: Intervention): HitlSubtype | nul
   const types = msg.interaction_type ?? []
   const has = (t: string) => types.includes(t as never)
 
+  // Vendor-RFQ standby — agent has emailed carriers and is waiting on rates.
+  // Read-only; checked first so a payload that bundles it with another type
+  // still routes to the standby card.
+  if (has('vendor_rfq')) return 'vendor_rfq'
+
   // Tool-args intercept — Type 3 email review
   if (has('tool_args')) return 'type3'
 

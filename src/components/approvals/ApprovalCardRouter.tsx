@@ -2,6 +2,7 @@ import { detectHitlSubtype, getPendingIntervention } from '../../utils/hitl'
 import { Type1Card } from './Type1Card'
 import { Type2Card } from './Type2Card'
 import { Type3Card } from './Type3Card'
+import { VendorRfqCard } from './VendorRfqCard'
 import type { JobDetail } from '../../types/job'
 import type { HITLActionRequest } from '../../api/hitl'
 
@@ -46,6 +47,17 @@ export function ApprovalCardRouter({ job, onAction, loadingId }: Props) {
   if (subtype === 'type3') {
     return (
       <Type3Card
+        job={job}
+        intervention={pending}
+        onAction={handleAction}
+        loading={loading}
+      />
+    )
+  }
+
+  if (subtype === 'vendor_rfq') {
+    return (
+      <VendorRfqCard
         job={job}
         intervention={pending}
         onAction={handleAction}

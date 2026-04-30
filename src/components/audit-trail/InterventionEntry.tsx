@@ -9,6 +9,7 @@ const TYPE_LABELS: Record<HitlSubtype, string> = {
   type2_step1: 'Price Review',
   type2_step2: 'Final Approval',
   type3: 'Email Preview',
+  vendor_rfq: 'Vendor RFQ Standby',
 }
 
 interface Props {

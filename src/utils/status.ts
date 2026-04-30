@@ -66,6 +66,10 @@ export function deriveJobStatus(
   if (status === 'interrupted') {
     if (isAwaitingAck({ status, tasks, interventions }))
       return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
+    // Vendor-rate standby is its own external-wait state — independent of
+    // the rate-master "Gathering Info" gate, since by definition rates aren't
+    // in master for this lane.
+    if (subtype === 'vendor_rfq') return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
     const ratesDone = (tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&
              (t.status === 'success' || t.status === 'completed')
@@ -85,6 +89,7 @@ export function deriveJobStatus(
   if (subtype === 'type2_step1') return { label: 'Pending — Review Pricing', variant: 'yellow' }
   if (subtype === 'type2_step2') return { label: 'Pending — Final Approval', variant: 'yellow' }
   if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
+  if (subtype === 'vendor_rfq') return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
   return { label: 'Processing', variant: 'blue' }
 }
 
@@ -105,6 +110,7 @@ export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null)
     // Quote sent, no pending intervention — waiting on customer reply
     if (isEmailSent(job)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     // Pre-send HITL stages
+    if (subtype === 'vendor_rfq') return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
     if (subtype === 'type3') return { label: 'Email Review Pending', variant: 'purple' }
     if (subtype === 'type2_step0') return { label: 'Carrier Selection Pending', variant: 'purple' }
     if (subtype === 'type2_step1') return { label: 'Price Review Pending', variant: 'purple' }
@@ -118,6 +124,7 @@ export function derivePipelineStage(job: JobDetail, subtype: HitlSubtype | null)
   if (subtype === 'type2_step1') return { label: 'Pending — Review Pricing', variant: 'yellow' }
   if (subtype === 'type2_step2') return { label: 'Pending — Final Approval', variant: 'yellow' }
   if (subtype === 'type3') return { label: 'Pending — Email Preview', variant: 'yellow' }
+  if (subtype === 'vendor_rfq') return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
 
   // running, no hitl — check currently running task title (forward order)
   const runningTask = job.tasks?.find((t) => t.status === 'running')

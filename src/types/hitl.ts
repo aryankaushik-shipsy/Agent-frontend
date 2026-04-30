@@ -1,4 +1,4 @@
-export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval' | 'free_text'
+export type HitlInteractionType = 'form' | 'candidate_selection' | 'tool_args' | 'approval' | 'free_text' | 'vendor_rfq'
 
 // Legacy names (string/date/datetime/boolean) are kept for backward compat
 // with pre-refactor payloads. V2 policy backend emits the unified-schema names:
@@ -388,3 +388,4 @@ export type HitlSubtype =
   | 'type2_step1' // interaction_type=["form"], step_index == 1
   | 'type2_step2' // interaction_type=["form"], step_index == 2 — final approval
   | 'type3'       // interaction_type=["tool_args"]
+  | 'vendor_rfq'  // interaction_type=["vendor_rfq"] — awaiting external vendor rates

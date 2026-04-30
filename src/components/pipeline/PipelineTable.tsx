@@ -165,6 +165,13 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                       </Button>
                     )
                   }
+                  if (isAwaitingAction && subtype === 'vendor_rfq') {
+                    return (
+                      <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                        View Status
+                      </Button>
+                    )
+                  }
                   if (job.status === 'running' || job.status === 'queued') {
                     return <Spinner size="sm" />
                   }

@@ -26,6 +26,9 @@ export function ContextBanner({ job, type1, markupPct }: Props) {
           <span>Route: <strong>{String(cv.origin ?? '—')} → {String(cv.destination ?? '—')}</strong></span>
           <span>Mode: <strong>{String(cv.mode ?? '—')}</strong></span>
           <span>Weight: <strong>{cv.weight_kg != null ? `${cv.weight_kg} kg` : '—'}</strong></span>
+          {cv.incoterms != null && cv.incoterms !== '' && (
+            <span>Incoterm: <strong>{String(cv.incoterms)}</strong></span>
+          )}
           {tier !== '—' && <span>Tier: <strong>{tier}</strong></span>}
           {markupPct != null && <span>Markup: <strong>{markupPct}%</strong></span>}
         </div>
