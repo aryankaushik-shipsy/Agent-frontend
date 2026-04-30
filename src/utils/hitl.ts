@@ -33,6 +33,12 @@ export function detectHitlType(intervention: Intervention): HitlType | null {
   if (resolved === null) return null
   // String that failed JSON.parse → raw HTML → Type 3
   if (typeof resolved === 'string') return 3
+  // Vendor-RFQ standby: lane has no rates in master, agent has emailed
+  // carriers and is waiting. Detected ahead of items/carriers since the
+  // payload may carry shipment context too.
+  if ((resolved as { type?: string }).type === 'vendor_rfq') return 4
+  if ('vendors' in resolved && Array.isArray((resolved as { vendors: unknown }).vendors)
+      && !('items' in resolved) && !('carriers' in resolved)) return 4
   if ('items' in resolved) return 1
   if ('carriers' in resolved) return 2
   // Object but unrecognised shape — treat as Type 3 (show summary/raw text)

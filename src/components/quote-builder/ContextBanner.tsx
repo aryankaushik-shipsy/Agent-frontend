@@ -26,6 +26,7 @@ export function ContextBanner({ job, type1, markupPct }: Props) {
           <span>Route: <strong>{item.origin} → {item.destination}</strong></span>
           <span>Mode: <strong>{item.mode}</strong></span>
           <span>Weight: <strong>{item.weight_kg} kg</strong></span>
+          {item.incoterms && <span>Incoterm: <strong>{item.incoterms}</strong></span>}
           {tier !== '—' && <span>Tier: <strong>{tier}</strong></span>}
           {markupPct != null && <span>Markup: <strong>{markupPct}%</strong></span>}
         </div>

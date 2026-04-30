@@ -1,6 +1,6 @@
 import type { Carrier } from './carrier'
 
-export type HitlType = 1 | 2 | 3
+export type HitlType = 1 | 2 | 3 | 4
 
 export interface ShipmentItem {
   origin: string
@@ -25,4 +25,23 @@ export interface Type2Payload {
   origin?: string
   destination?: string
   weight_kg?: number
+}
+
+// Vendor RFQ standby — fires when no rates exist in the master for the lane,
+// so the agent has emailed carriers and is waiting on quotes. Read-only card;
+// the flow auto-rejoins the standard Type 2 path once a vendor responds.
+export interface VendorContact {
+  name: string
+  email?: string
+}
+
+export interface Type4Payload {
+  // Either a list of carrier names or {name, email} objects — render handles both.
+  vendors: Array<string | VendorContact>
+  lane?: string
+  mode?: string
+  ready_date?: string
+  validity_requested_days?: number
+  expected_response_by?: string
+  rfq_sent_at?: string
 }

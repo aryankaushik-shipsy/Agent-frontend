@@ -6,6 +6,7 @@ const TYPE_LABELS: Record<number, string> = {
   1: 'Shipment Confirmation',
   2: 'Carrier Selection',
   3: 'Email Preview',
+  4: 'Vendor RFQ Standby',
 }
 
 interface Props {

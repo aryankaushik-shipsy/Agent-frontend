@@ -144,6 +144,11 @@ export function PipelineTable({ jobs, details, detailsLoading, searchQuery }: Pr
                     Preview Email
                   </Button>
                 )}
+                {hitlType === 4 && (
+                  <Button variant="ghost" onClick={() => navigate(`/approvals/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
+                    View Status
+                  </Button>
+                )}
                 {job.status === 'success' && (
                   <Button variant="ghost" onClick={() => navigate(`/audit/${job.id}`)} style={{ fontSize: 12, padding: '4px 10px' }}>
                     View Trail

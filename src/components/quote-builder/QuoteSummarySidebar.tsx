@@ -84,10 +84,18 @@ export function QuoteSummarySidebar({
             <span className="qs-label">Carrier</span>
             <span className="qs-val">{selectedCarrier.carrier}</span>
           </div>
+          {selectedCarrier.quote_basis && (
+            <div className="qs-row">
+              <span className="qs-label">Quote Basis</span>
+              <span className="qs-val" style={{ maxWidth: 180, textAlign: 'right' }}>{selectedCarrier.quote_basis}</span>
+            </div>
+          )}
           <div className="qs-row">
             <span className="qs-label">Validity</span>
             <span className="qs-val">
-              {selectedCarrier.validity_date ? formatDate(selectedCarrier.validity_date) : '—'}
+              {selectedCarrier.validity_days != null
+                ? `${selectedCarrier.validity_days} day${selectedCarrier.validity_days !== 1 ? 's' : ''}`
+                : selectedCarrier.validity_date ? formatDate(selectedCarrier.validity_date) : '—'}
             </span>
           </div>
           {selectedCarrier.markup_pct != null && (
@@ -133,6 +141,18 @@ export function QuoteSummarySidebar({
             <div className="qs-total">
               <span>Grand Total</span>
               <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>
+            </div>
+          )}
+          {(selectedCarrier.exclusions?.length ?? 0) > 0 && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--gray-100)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                Exclusions
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.5 }}>
+                {selectedCarrier.exclusions!.map((item, i) => (
+                  <li key={i}>{item}</li>
+                ))}
+              </ul>
             </div>
           )}
         </>
