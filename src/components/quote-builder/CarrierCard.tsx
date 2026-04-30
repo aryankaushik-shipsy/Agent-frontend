@@ -1,6 +1,7 @@
 import { Badge } from '../ui/Badge'
 import { getCarrierInitials, formatCurrency } from '../../utils/carrier'
 import { formatDate } from '../../utils/time'
+import { expandToCanonicalBreakdown } from '../../utils/charges'
 import type { Carrier } from '../../types/carrier'
 
 interface Props {
@@ -92,13 +93,14 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
       )}
 
       <div className="carrier-breakdown">
-        {(carrier.breakdown ?? []).map((line, i) => {
+        {expandToCanonicalBreakdown(carrier.breakdown).map((line, i) => {
           const sourceLabel = line.rate_source === 'vendor' ? 'Vendor'
             : line.rate_source === 'master' ? 'Master'
             : null
+          const isZero = !line.amount
           return (
             <div key={i} style={{ display: 'contents' }}>
-              <div className="line-label">
+              <div className="line-label" style={isZero ? { color: 'var(--gray-400)' } : undefined}>
                 {line.charge}
                 {sourceLabel && (
                   <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--gray-400)', fontWeight: 400 }}>
@@ -111,7 +113,9 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
                   </div>
                 )}
               </div>
-              <div className="line-val">{carrier.currency_code} {line.amount.toLocaleString()}</div>
+              <div className="line-val" style={isZero ? { color: 'var(--gray-400)' } : undefined}>
+                {carrier.currency_code} {line.amount.toLocaleString()}
+              </div>
             </div>
           )
         })}

@@ -5,6 +5,7 @@ import { getJobById } from '../api/jobs'
 import { getPendingIntervention, detectHitlType } from '../utils/hitl'
 import { Button } from '../components/ui/Button'
 import { Spinner } from '../components/ui/Spinner'
+import { expandToCanonicalBreakdown } from '../utils/charges'
 import { formatDate } from '../utils/time'
 import type { Carrier } from '../types/carrier'
 import type { Type1Payload } from '../types/hitl'
@@ -175,7 +176,7 @@ export function QuotePreview() {
             ) : selectedCarrier.validity_date ? (
               <Row label="Quote Valid Until" value={formatDate(selectedCarrier.validity_date)} />
             ) : null}
-            {(selectedCarrier.breakdown ?? []).map((line, i) => {
+            {expandToCanonicalBreakdown(selectedCarrier.breakdown).map((line, i) => {
               const sourceSuffix = line.rate_source === 'vendor' ? ' · Vendor'
                 : line.rate_source === 'master' ? ' · Master'
                 : ''
@@ -185,6 +186,7 @@ export function QuotePreview() {
                   label={`${line.charge}${sourceSuffix}`}
                   value={`${selectedCarrier.currency_code} ${line.amount.toLocaleString()}`}
                   caption={line.note ?? undefined}
+                  muted={!line.amount}
                 />
               )
             })}
@@ -270,16 +272,16 @@ export function QuotePreview() {
   )
 }
 
-function Row({ label, value, bold, highlight, strikethrough, red, caption }: {
-  label: string; value: string; bold?: boolean; highlight?: boolean; strikethrough?: boolean; red?: boolean; caption?: string
+function Row({ label, value, bold, highlight, strikethrough, red, caption, muted }: {
+  label: string; value: string; bold?: boolean; highlight?: boolean; strikethrough?: boolean; red?: boolean; caption?: string; muted?: boolean
 }) {
   return (
     <div style={{ padding: '5px 0', fontSize: 13, borderBottom: '1px solid var(--gray-50)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <span style={{ color: red ? '#dc2626' : 'var(--gray-500)' }}>{label}</span>
+        <span style={{ color: red ? '#dc2626' : muted ? 'var(--gray-400)' : 'var(--gray-500)' }}>{label}</span>
         <span style={{
           fontWeight: bold ? 600 : 400,
-          color: highlight ? 'var(--green-600, #16a34a)' : red ? '#dc2626' : strikethrough ? 'var(--gray-400)' : undefined,
+          color: highlight ? 'var(--green-600, #16a34a)' : red ? '#dc2626' : (strikethrough || muted) ? 'var(--gray-400)' : undefined,
           textDecoration: strikethrough ? 'line-through' : undefined,
         }}>
           {value}
