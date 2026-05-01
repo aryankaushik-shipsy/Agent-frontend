@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../ui/Button'
 import { Badge } from '../ui/Badge'
 import { formatRelativeTime } from '../../utils/time'
-import { stripHtml } from '../../utils/hitl'
+import { stripHtml, getEmailHtmlFromIntervention } from '../../utils/hitl'
 import { getCustomerName } from '../../utils/status'
 import type { JobDetail, Intervention } from '../../types/job'
 
@@ -16,8 +16,7 @@ interface Props {
 export function Type3Card({ job, intervention, onAction, loading }: Props) {
   const navigate = useNavigate()
   const customer = getCustomerName(job)
-  const rawHtml = typeof intervention.interrupt.details.ai_response === 'string'
-    ? intervention.interrupt.details.ai_response : ''
+  const rawHtml = getEmailHtmlFromIntervention(intervention)
   const excerpt = stripHtml(rawHtml).slice(0, 200)
 
   return (

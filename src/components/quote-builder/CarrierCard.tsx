@@ -36,7 +36,7 @@ export function CarrierCard({ carrier, selected, isBestPrice, isBestMargin, tier
             {isBestMargin && <Badge variant="purple" dot={false}>Best Margin</Badge>}
             {tierLabel    && <Badge variant="blue"   dot={false}>{tierLabel} Tier</Badge>}
             {discount     && <Badge variant="yellow" dot={false}>Discounted</Badge>}
-            {carrier.incoterm && <Badge variant="gray" dot={false}>{carrier.incoterm}</Badge>}
+            {(carrier.incoterm ?? carrier.incoterms) && <Badge variant="gray" dot={false}>{carrier.incoterm ?? carrier.incoterms}</Badge>}
             {carrier.transit_days != null && (
               <Badge variant="blue" dot={false}>{carrier.transit_days} day{carrier.transit_days !== 1 ? 's' : ''} transit</Badge>
             )}

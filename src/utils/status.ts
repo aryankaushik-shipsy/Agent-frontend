@@ -38,6 +38,31 @@ export function isAwaitingAck(job: { status: string; tasks?: Task[] }): boolean 
   return isEmailSent(job.tasks)
 }
 
+/**
+ * Returns true when the agent has dispatched a vendor RFQ email (task
+ * `send_vendor_rfq` exists) but no rate fetch has come back yet. The
+ * workflow is paused waiting for at least one vendor reply — surfaced
+ * via tasks rather than HITL because no intervention is created for
+ * this state.
+ */
+export function isAwaitingVendorRates(job: { tasks?: Task[] }): boolean {
+  const tasks = job.tasks ?? []
+  const hasVendorRfq = tasks.some(
+    (t) =>
+      t.title?.toLowerCase().includes('vendor_rfq') ||
+      t.title?.toLowerCase().includes('send_vendor')
+  )
+  if (!hasVendorRfq) return false
+  // If get_rate has already completed successfully, a vendor replied and the
+  // job has moved on — no longer in vendor-wait.
+  const ratesDone = tasks.some(
+    (t) =>
+      t.title?.toLowerCase().includes('get_rate') &&
+      (t.status === 'success' || t.status === 'completed')
+  )
+  return !ratesDone
+}
+
 export function deriveJobStatus(
   status: JobStatus,
   hitlType: HitlType | null,
@@ -51,8 +76,13 @@ export function deriveJobStatus(
       return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
     // Vendor-rate standby is its own external-wait state — independent of
     // the rate-master "Gathering Info" gate, since by definition rates aren't
-    // in master for this lane.
-    if (hitlType === 4) return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+    // in master for this lane. Detected via either the dedicated HITL type
+    // (when the policy emits one) or the send_vendor_rfq task (when it
+    // doesn't — the more common case today).
+    if (hitlType === 4 || isAwaitingVendorRates({ tasks })) {
+      return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+    }
+    if (hitlType === 5) return { label: 'Rates Unavailable · Decision Pending', variant: 'purple' }
     const ratesDone = (tasks ?? []).some(
       (t) => t.title?.toLowerCase().includes('get_rate') &&
              (t.status === 'success' || t.status === 'completed')
@@ -64,11 +94,14 @@ export function deriveJobStatus(
     return { label: 'Interrupted', variant: 'yellow' }
   }
 
-  // running — check HITL type
+  // running — check HITL type / task signals
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
   if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
-  if (hitlType === 4) return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+  if (hitlType === 4 || isAwaitingVendorRates({ tasks })) {
+    return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+  }
+  if (hitlType === 5) return { label: 'Rates Unavailable · Decision Pending', variant: 'purple' }
   return { label: 'Processing', variant: 'blue' }
 }
 
@@ -85,8 +118,12 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
     if (isEmailSent(job.tasks) && hasPending) return { label: 'Price Negotiation', variant: 'yellow' }
     // Quote sent, no pending intervention — waiting on customer reply
     if (isEmailSent(job.tasks)) return { label: 'Quote Sent · Awaiting Ack', variant: 'blue' }
-    // Pre-send HITL stages
-    if (hitlType === 4) return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+    // Pre-send HITL stages — vendor RFQ standby first since it's the
+    // task-based signal that fires before any HITL is created.
+    if (hitlType === 4 || isAwaitingVendorRates(job)) {
+      return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+    }
+    if (hitlType === 5) return { label: 'Rates Unavailable · Decision Pending', variant: 'purple' }
     if (hitlType === 3) return { label: 'Email Review Pending', variant: 'purple' }
     if (hitlType === 2) return { label: 'Carrier Selection Pending', variant: 'purple' }
     if (hitlType === 1) return { label: 'Awaiting Shipment Confirmation', variant: 'purple' }
@@ -96,11 +133,15 @@ export function derivePipelineStage(job: JobDetail, hitlType: HitlType | null): 
   if (hitlType === 1) return { label: 'Pending — Confirm Shipment', variant: 'purple' }
   if (hitlType === 2) return { label: 'Pending — Select Carrier', variant: 'yellow' }
   if (hitlType === 3) return { label: 'Pending — Email Preview', variant: 'yellow' }
-  if (hitlType === 4) return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+  if (hitlType === 4 || isAwaitingVendorRates(job)) {
+    return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
+  }
+  if (hitlType === 5) return { label: 'Rates Unavailable · Decision Pending', variant: 'purple' }
 
   // running, no hitl — check currently running task title (forward order)
   const runningTask = job.tasks?.find((t) => t.status === 'running')
   const title = runningTask?.title?.toLowerCase() ?? ''
+  if (title.includes('vendor'))     return { label: 'Awaiting Vendor Rates', variant: 'yellow' }
   if (title.includes('generate'))   return { label: 'Generating Email', variant: 'blue' }
   if (title.includes('calculate'))  return { label: 'Calculating Quote', variant: 'blue' }
   if (title.includes('get_rate'))   return { label: 'Fetching Rates', variant: 'blue' }

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useHitlAction } from '../hooks/useHitlAction'
-import { getPendingIntervention, detectHitlType } from '../utils/hitl'
+import { getPendingIntervention, detectHitlType, getEmailHtmlFromIntervention } from '../utils/hitl'
 import { getCustomerName, getInfoField, isPlatformJob } from '../utils/status'
 import { getJobById } from '../api/jobs'
 import { Button } from '../components/ui/Button'
@@ -136,8 +136,7 @@ export function EmailPreview() {
     )
   }
 
-  const emailHtml = typeof pending.interrupt.details.ai_response === 'string'
-    ? pending.interrupt.details.ai_response : ''
+  const emailHtml = getEmailHtmlFromIntervention(pending)
   const summary   = pending.interrupt.details.summary
   const platform  = isPlatformJob(job)
   const customer  = getCustomerName(job)

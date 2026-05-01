@@ -1,6 +1,6 @@
 import type { Carrier } from './carrier'
 
-export type HitlType = 1 | 2 | 3 | 4
+export type HitlType = 1 | 2 | 3 | 4 | 5
 
 export interface ShipmentItem {
   origin: string
@@ -25,6 +25,16 @@ export interface Type2Payload {
   origin?: string
   destination?: string
   weight_kg?: number
+}
+
+// "Rates Unavailable" decision — internal rate master had no entry for this
+// lane. Reviewer chooses between (a) emailing carriers for vendor rates,
+// (b) sending the customer the drafted apology email, or (c) ending the job.
+// Distinguished from Type 1 by the presence of an apology `message` HTML
+// alongside the shipment `items` array.
+export interface Type5Payload {
+  items: ShipmentItem[]
+  message: string
 }
 
 // Vendor RFQ standby — fires when no rates exist in the master for the lane,

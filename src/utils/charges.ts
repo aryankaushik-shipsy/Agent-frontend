@@ -27,6 +27,9 @@ const CANONICAL_CHARGES: Array<{ label: string; aliases: string[] }> = [
 function normalize(s: string): string {
   return s
     .toLowerCase()
+    // Treat en-dash / em-dash / hyphen-minus identically — backend mixes them
+    // ("Airport Handling – Origin" vs "Airport Handling - Origin").
+    .replace(/[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]/g, '-')
     .replace(/[().]/g, '')
     .replace(/\s+/g, ' ')
     .trim()

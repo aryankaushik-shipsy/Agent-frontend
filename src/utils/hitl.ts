@@ -39,6 +39,10 @@ export function detectHitlType(intervention: Intervention): HitlType | null {
   if ((resolved as { type?: string }).type === 'vendor_rfq') return 4
   if ('vendors' in resolved && Array.isArray((resolved as { vendors: unknown }).vendors)
       && !('items' in resolved) && !('carriers' in resolved)) return 4
+  // Rates-unavailable decision point — shipment context + apology email body
+  // arrive together. Must be checked before plain Type 1 (which only carries
+  // `items`).
+  if ('items' in resolved && typeof (resolved as { message?: unknown }).message === 'string') return 5
   if ('items' in resolved) return 1
   if ('carriers' in resolved) return 2
   // Object but unrecognised shape — treat as Type 3 (show summary/raw text)
@@ -52,4 +56,23 @@ export function getPendingIntervention(interventions: Intervention[] | undefined
 
 export function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').trim()
+}
+
+/**
+ * Pull the email HTML body out of an intervention's ai_response. The agent
+ * returns this in two shapes depending on the node:
+ *   - a raw HTML string (older quote-email node), or
+ *   - an object { message: "<html>", ... } (vendor / apology / quotation v3),
+ *     sometimes with the body under `html` instead.
+ * Returns '' when no usable body is present.
+ */
+export function getEmailHtmlFromIntervention(intervention: Intervention): string {
+  const raw = intervention?.interrupt?.details?.ai_response
+  if (typeof raw === 'string') return raw
+  if (raw && typeof raw === 'object') {
+    const obj = raw as { message?: unknown; html?: unknown; body?: unknown }
+    const candidate = obj.message ?? obj.html ?? obj.body
+    if (typeof candidate === 'string') return candidate
+  }
+  return ''
 }

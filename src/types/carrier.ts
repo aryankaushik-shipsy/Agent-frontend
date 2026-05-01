@@ -20,13 +20,17 @@ export interface Carrier {
   // are present; vendor-sourced quotes use a shorter window).
   validity_days?: number | null
   // Incoterm propagated onto the quote — drives the chip on quote views and
-  // the "Quote Basis" line. The value comes from the agent payload.
+  // the "Quote Basis" line. Backend sends `incoterms` (plural) on the carrier
+  // object; `incoterm` is kept as a tolerated alias.
   incoterm?: string | null
+  incoterms?: string | null
   // Free-form basis line (e.g. "EXW Dubai, UAE") shown beneath the carrier.
   quote_basis?: string | null
   // Agent-authored exclusions copy. Rendered as a bulleted list on the
-  // quote preview / sidebar when non-empty.
+  // quote preview / sidebar when non-empty. Backend sends `excluded_charges`;
+  // `exclusions` kept as a tolerated alias.
   exclusions?: string[] | null
+  excluded_charges?: string[] | null
   breakdown: BreakdownLine[]
   subtotal_before_markup?: number
   subtotal: number

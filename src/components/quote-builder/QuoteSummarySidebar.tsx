@@ -143,18 +143,22 @@ export function QuoteSummarySidebar({
               <span>{selectedCarrier.currency_code} {selectedCarrier.grand_total.toLocaleString()}</span>
             </div>
           )}
-          {(selectedCarrier.exclusions?.length ?? 0) > 0 && (
-            <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--gray-100)' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
-                Exclusions
+          {(() => {
+            const exclusions = selectedCarrier.exclusions ?? selectedCarrier.excluded_charges
+            if (!exclusions?.length) return null
+            return (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--gray-100)' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-500)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  Exclusions
+                </div>
+                <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.5 }}>
+                  {exclusions.map((item, i) => (
+                    <li key={i}>{item}</li>
+                  ))}
+                </ul>
               </div>
-              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 11, color: 'var(--gray-600)', lineHeight: 1.5 }}>
-                {selectedCarrier.exclusions!.map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+            )
+          })()}
         </>
       )}
 

@@ -153,8 +153,11 @@ export function QuotePreview() {
               <Row label="Destination" value={item.destination} />
               <Row label="Mode" value={item.mode} />
               <Row label="Weight" value={`${item.weight_kg} kg`} />
-              {(selectedCarrier.incoterm ?? item.incoterms) && (
-                <Row label="Incoterm" value={String(selectedCarrier.incoterm ?? item.incoterms)} />
+              {(selectedCarrier.incoterm ?? selectedCarrier.incoterms ?? item.incoterms) && (
+                <Row
+                  label="Incoterm"
+                  value={String(selectedCarrier.incoterm ?? selectedCarrier.incoterms ?? item.incoterms)}
+                />
               )}
               {item.date && <Row label="Date" value={formatDate(item.date)} />}
             </section>
@@ -243,18 +246,22 @@ export function QuotePreview() {
               </span>
             </div>
 
-            {(selectedCarrier.exclusions?.length ?? 0) > 0 && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--gray-100)' }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                  Exclusions
+            {(() => {
+              const exclusions = selectedCarrier.exclusions ?? selectedCarrier.excluded_charges
+              if (!exclusions?.length) return null
+              return (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--gray-100)' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--gray-400)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    Exclusions
+                  </div>
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.6 }}>
+                    {exclusions.map((item, i) => (
+                      <li key={i}>{item}</li>
+                    ))}
+                  </ul>
                 </div>
-                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--gray-600)', lineHeight: 1.6 }}>
-                  {selectedCarrier.exclusions!.map((item, i) => (
-                    <li key={i}>{item}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              )
+            })()}
           </div>
         </div>
       </div>
